@@ -1,0 +1,426 @@
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:get/get.dart';
+import 'package:niya_equb/core/config/app_theme.dart';
+import 'package:niya_equb/features/member/islamic/data/static/allah_names_data.dart';
+import 'package:niya_equb/features/member/islamic/presentation/islamic_theme.dart';
+import 'package:share_plus/share_plus.dart';
+
+/// Asma' ul-Husna, browsable as a grid or list, with search.
+class AllahNamesScreen extends StatefulWidget {
+  static const String routeName = '/islamic-allah-names';
+
+  const AllahNamesScreen({super.key});
+
+  @override
+  State<AllahNamesScreen> createState() => _AllahNamesScreenState();
+}
+
+class _AllahNamesScreenState extends State<AllahNamesScreen> {
+  final TextEditingController _searchController = TextEditingController();
+
+  List<AllahName> _results = AllahNamesData.all;
+  bool _gridView = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(() {
+      setState(
+        () => _results = AllahNamesData.search(_searchController.text),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = colors(context);
+
+    return Scaffold(
+      backgroundColor: appColors.scaffoldBackgroundColor,
+      appBar: AppBar(
+        backgroundColor: IslamicColors.featureNames,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        centerTitle: true,
+        title: Text(
+          'allah_names'.tr,
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.w700,
+            color: Colors.white,
+          ),
+        ),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _gridView ? Icons.view_list_rounded : Icons.grid_view_rounded,
+              color: Colors.white,
+            ),
+            onPressed: () => setState(() => _gridView = !_gridView),
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          _header(appColors),
+          Padding(
+            padding: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 8.h),
+            child: TextField(
+              controller: _searchController,
+              style: TextStyle(fontSize: 13.sp, color: appColors.titleTextColor),
+              decoration: InputDecoration(
+                hintText: 'search_names'.tr,
+                prefixIcon: Icon(Icons.search_rounded, size: 19.sp),
+                suffixIcon: _searchController.text.isEmpty
+                    ? null
+                    : IconButton(
+                        icon: Icon(Icons.close_rounded, size: 18.sp),
+                        onPressed: () => _searchController.clear(),
+                      ),
+                isDense: true,
+              ),
+            ),
+          ),
+          Expanded(
+            child: _results.isEmpty
+                ? Center(
+                    child: Text(
+                      'no_names_found'.tr,
+                      style: TextStyle(
+                        fontSize: 12.5.sp,
+                        color: appColors.bodyTextSmallColor,
+                      ),
+                    ),
+                  )
+                : (_gridView ? _grid(appColors) : _list(appColors)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _header(dynamic appColors) {
+    return Container(
+      width: double.infinity,
+      padding: EdgeInsets.symmetric(vertical: 16.h, horizontal: 20.w),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [IslamicColors.featureNames, Color(0xFF0F766E)],
+        ),
+      ),
+      child: Column(
+        children: [
+          Text(
+            'وَلِلَّهِ الْأَسْمَاءُ الْحُسْنَىٰ فَادْعُوهُ بِهَا',
+            textAlign: TextAlign.center,
+            textDirection: TextDirection.rtl,
+            style: TextStyle(
+              fontSize: 17.sp,
+              fontWeight: FontWeight.w600,
+              height: 1.9,
+              color: Colors.white,
+            ),
+          ),
+          SizedBox(height: 6.h),
+          Text(
+            'allah_names_verse'.tr,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 10.5.sp,
+              height: 1.4,
+              color: Colors.white70,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _grid(dynamic appColors) {
+    return GridView.builder(
+      padding: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 24.h),
+      itemCount: _results.length,
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 2,
+        mainAxisSpacing: 10.h,
+        crossAxisSpacing: 10.w,
+        childAspectRatio: 1.02,
+      ),
+      itemBuilder: (context, index) => _card(appColors, _results[index]),
+    );
+  }
+
+  Widget _card(dynamic appColors, AllahName name) {
+    return Material(
+      color: appColors.accentColor,
+      borderRadius: BorderRadius.circular(15.r),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(15.r),
+        onTap: () => _showDetail(appColors, name),
+        child: Padding(
+          padding: EdgeInsets.all(12.w),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 24.w,
+                height: 24.w,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: IslamicColors.featureNames.withValues(alpha: 0.14),
+                ),
+                child: Center(
+                  child: Text(
+                    '${name.number}',
+                    style: TextStyle(
+                      fontSize: 9.sp,
+                      fontWeight: FontWeight.w700,
+                      color: IslamicColors.featureNames,
+                    ),
+                  ),
+                ),
+              ),
+              SizedBox(height: 8.h),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  name.arabic,
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontSize: 22.sp,
+                    fontWeight: FontWeight.w700,
+                    height: 1.7,
+                    color: IslamicColors.featureNames,
+                  ),
+                ),
+              ),
+              SizedBox(height: 4.h),
+              Text(
+                name.transliteration,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11.5.sp,
+                  fontWeight: FontWeight.w700,
+                  color: appColors.titleTextColor,
+                ),
+              ),
+              SizedBox(height: 2.h),
+              Text(
+                name.meaning,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 9.5.sp,
+                  height: 1.25,
+                  color: appColors.bodyTextSmallColor,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _list(dynamic appColors) {
+    return ListView.separated(
+      padding: EdgeInsets.fromLTRB(12.w, 4.h, 12.w, 24.h),
+      itemCount: _results.length,
+      separatorBuilder: (_, __) => SizedBox(height: 6.h),
+      itemBuilder: (context, index) {
+        final name = _results[index];
+
+        return Material(
+          color: appColors.accentColor,
+          borderRadius: BorderRadius.circular(13.r),
+          child: InkWell(
+            borderRadius: BorderRadius.circular(13.r),
+            onTap: () => _showDetail(appColors, name),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 11.h),
+              child: Row(
+                children: [
+                  Container(
+                    width: 30.w,
+                    height: 30.w,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: IslamicColors.featureNames.withValues(alpha: 0.13),
+                    ),
+                    child: Center(
+                      child: Text(
+                        '${name.number}',
+                        style: TextStyle(
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.w700,
+                          color: IslamicColors.featureNames,
+                        ),
+                      ),
+                    ),
+                  ),
+                  SizedBox(width: 12.w),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          name.transliteration,
+                          style: TextStyle(
+                            fontSize: 12.5.sp,
+                            fontWeight: FontWeight.w700,
+                            color: appColors.titleTextColor,
+                          ),
+                        ),
+                        SizedBox(height: 2.h),
+                        Text(
+                          name.meaning,
+                          style: TextStyle(
+                            fontSize: 10.5.sp,
+                            color: appColors.bodyTextSmallColor,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  SizedBox(width: 8.w),
+                  Text(
+                    name.arabic,
+                    textDirection: TextDirection.rtl,
+                    style: TextStyle(
+                      fontSize: 19.sp,
+                      fontWeight: FontWeight.w700,
+                      color: IslamicColors.featureNames,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _showDetail(dynamic appColors, AllahName name) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: appColors.scaffoldBackgroundColor,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24.r)),
+      ),
+      builder: (sheetContext) {
+        final shareText =
+            '${name.arabic}\n${name.transliteration}\n${name.meaning}\n\n'
+            '— ${'allah_names'.tr} ${name.number}/99';
+
+        return SafeArea(
+          child: Padding(
+            padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 24.h),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: EdgeInsets.symmetric(
+                    horizontal: 12.w,
+                    vertical: 4.h,
+                  ),
+                  decoration: BoxDecoration(
+                    color: IslamicColors.featureNames.withValues(alpha: 0.14),
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                  child: Text(
+                    '${name.number} / 99',
+                    style: TextStyle(
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.w700,
+                      color: IslamicColors.featureNames,
+                    ),
+                  ),
+                ),
+                SizedBox(height: 18.h),
+                Text(
+                  name.arabic,
+                  textAlign: TextAlign.center,
+                  textDirection: TextDirection.rtl,
+                  style: TextStyle(
+                    fontSize: 40.sp,
+                    fontWeight: FontWeight.w700,
+                    height: 1.8,
+                    color: IslamicColors.featureNames,
+                  ),
+                ),
+                SizedBox(height: 10.h),
+                Text(
+                  name.transliteration,
+                  style: TextStyle(
+                    fontSize: 17.sp,
+                    fontWeight: FontWeight.w700,
+                    color: appColors.titleTextColor,
+                  ),
+                ),
+                SizedBox(height: 6.h),
+                Text(
+                  name.meaning,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    height: 1.5,
+                    color: appColors.bodyTextSmallColor,
+                  ),
+                ),
+                SizedBox(height: 22.h),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: shareText));
+                        Navigator.pop(sheetContext);
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text('copied'.tr),
+                            behavior: SnackBarBehavior.floating,
+                          ),
+                        );
+                      },
+                      icon: Icon(Icons.copy_rounded, size: 16.sp),
+                      label: Text(
+                        'copy'.tr,
+                        style: TextStyle(fontSize: 12.sp),
+                      ),
+                    ),
+                    SizedBox(width: 12.w),
+                    FilledButton.icon(
+                      style: FilledButton.styleFrom(
+                        backgroundColor: IslamicColors.featureNames,
+                      ),
+                      onPressed: () {
+                        Navigator.pop(sheetContext);
+                        Share.share(shareText);
+                      },
+                      icon: Icon(Icons.share_rounded, size: 16.sp),
+                      label: Text(
+                        'share'.tr,
+                        style: TextStyle(fontSize: 12.sp),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

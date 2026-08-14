@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Protects the adhan audio from the release resource shrinker.
+
+  NOTE FOR ANYONE EDITING THIS COMMENT: XML forbids a double hyphen anywhere
+  inside a comment body, and AGP feeds this file straight to R8's XML parser.
+  A stray "-" "-" pair here does not produce a friendly lint warning; it fails
+  the whole minifyReleaseWithR8 task with an XMLStreamException six minutes
+  into the build. Use an em dash instead, as below.
+
+  azan.wav (5 MB, the single largest resource in this APK) is never named from
+  Java, Kotlin or XML. Its only reference is a Dart string:
+
+      static const String azanSoundName = 'azan';
+      RawResourceAndroidNotificationSound(azanSoundName)
+
+  Dart compiles to libapp.so, which the AGP resource shrinker does not scan.
+  It only walks classes.dex and the resource table, so @raw/azan looks
+  completely unreferenced in a release build and is a prime candidate for
+  removal. When that happens the notification still posts, but the channel
+  resolves a dead resource id and Android falls back to silence: banner
+  appears, no adhan. Debug builds never shrink resources, which is why this
+  only ever shows up in release.
+
+  tools:keep is additive. It pins this one resource without disabling the
+  shrinker's normal heuristics for everything else.
+
+  If more sounds are added later (per-prayer adhan, takbir), extend the list:
+      tools:keep="@raw/azan,@raw/takbir"
+-->
+<resources
+    xmlns:tools="http://schemas.android.com/tools"
+    tools:keep="@raw/azan" />

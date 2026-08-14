@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Dark-mode override for the splash colour.
+
+    Deliberately the SAME white as light mode. A dark splash on a dark-mode
+    phone is visually indistinguishable from the black-screen bug this is
+    meant to prevent, so startup is white on every device regardless of the
+    system theme. The logo is drawn for a light background anyway.
+-->
+<resources>
+    <color name="splash_background">#FFFFFFFF</color>
+</resources>

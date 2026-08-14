@@ -1,0 +1,15 @@
+package com.niyaet.ekub
+
+import com.ryanheise.audioservice.AudioServiceActivity
+
+/**
+ * Extends AudioServiceActivity rather than FlutterActivity so the Quran player
+ * can bind to the platform media session.
+ *
+ * This is not optional and it fails quietly: with a plain FlutterActivity the
+ * audio still plays, but the notification-shade and lock-screen controls never
+ * appear and no error is logged. AudioServiceActivity is a thin FlutterActivity
+ * subclass that keeps the Flutter engine alive in a cached engine group so the
+ * background audio isolate can reach it.
+ */
+class MainActivity : AudioServiceActivity()

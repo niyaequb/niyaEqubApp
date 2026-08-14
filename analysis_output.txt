@@ -1,0 +1,51 @@
+Analyzing lib...                                                
+
+   info • Missing type annotation • lib/core/init/app_injections.dart:4:1 • strict_top_level_inference
+warning • The value of the field '_preferences' isn't used • lib/core/init/app_shared_prefs.dart:4:27 • unused_field
+   info • Missing type annotation • lib/core/init/auth_injection.dart:6:1 • strict_top_level_inference
+   info • The imported package 'provider' isn't a dependency of the importing package • lib/core/init/bloc_providers.dart:3:8 • depend_on_referenced_packages
+   info • The imported package 'logging' isn't a dependency of the importing package • lib/core/init/logger_interceptor.dart:2:8 • depend_on_referenced_packages
+   info • Missing type annotation • lib/core/init/logger_interceptor.dart:106:18 • strict_top_level_inference
+   info • Missing type annotation • lib/core/language/domain/service/language_service_interface.dart:6:3 • strict_top_level_inference
+   info • Missing type annotation • lib/core/language/domain/service/language_service_interface.dart:8:3 • strict_top_level_inference
+   info • The variable name 'chevron_down' isn't a lowerCamelCase identifier • lib/core/router/app_assets.dart:15:17 • non_constant_identifier_names
+   info • The variable name 'chevron_right' isn't a lowerCamelCase identifier • lib/core/router/app_assets.dart:16:17 • non_constant_identifier_names
+   info • The variable name 'credit_card' isn't a lowerCamelCase identifier • lib/core/router/app_assets.dart:18:17 • non_constant_identifier_names
+   info • The variable name 'log_out' isn't a lowerCamelCase identifier • lib/core/router/app_assets.dart:24:17 • non_constant_identifier_names
+   info • The variable name 'map_pin' isn't a lowerCamelCase identifier • lib/core/router/app_assets.dart:25:17 • non_constant_identifier_names
+   info • The variable name 'message_circle' isn't a lowerCamelCase identifier • lib/core/router/app_assets.dart:26:17 • non_constant_identifier_names
+   info • The variable name 'kabba_logo' isn't a lowerCamelCase identifier • lib/core/router/app_assets.dart:35:17 • non_constant_identifier_names
+   info • The variable name 'terms_condition' isn't a lowerCamelCase identifier • lib/core/router/app_assets.dart:39:17 • non_constant_identifier_names
+   info • The variable name 'no_route' isn't a lowerCamelCase identifier • lib/core/router/app_assets.dart:48:17 • non_constant_identifier_names
+   info • The file name 'DriverLocationService.dart' isn't a lower_case_with_underscores identifier • lib/core/service/DriverLocationService.dart:1:1 • file_names
+   info • The file name 'DriverRideHandler.dart' isn't a lower_case_with_underscores identifier • lib/core/service/DriverRideHandler.dart:1:1 • file_names
+   info • Don't invoke 'print' in production code • lib/core/service/dio_error_handler.dart:52:15 • avoid_print
+   info • Don't invoke 'print' in production code • lib/core/service/dio_error_handler.dart:74:15 • avoid_print
+   info • Use interpolation to compose strings and values • lib/core/service/dio_error_handler.dart:98:23 • prefer_interpolation_to_compose_strings
+   info • Don't invoke 'print' in production code • lib/core/service/dio_error_handler.dart:135:5 • avoid_print
+   info • Don't invoke 'print' in production code • lib/core/util/get_di.dart:47:3 • avoid_print
+   info • Use interpolation to compose strings and values • lib/features/agent/payout/presentation/screens/agent_payout_screen.dart:90:28 • prefer_interpolation_to_compose_strings
+   info • Statements in an if should be enclosed in a block • lib/features/auth/presentation/screens/forgot_password_screen.dart:150:23 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/auth/presentation/screens/forgot_password_screen.dart:152:23 • curly_braces_in_flow_control_structures
+   info • Statements in an if should be enclosed in a block • lib/features/auth/presentation/screens/forgot_password_screen.dart:214:15 • curly_braces_in_flow_control_structures
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/auth/presentation/screens/login_screen.dart:124:66 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/auth/presentation/screens/login_screen.dart:284:68 • deprecated_member_use
+   info • Statements in a for should be enclosed in a block • lib/features/auth/presentation/screens/otp_screen.dart:46:42 • curly_braces_in_flow_control_structures
+   info • Statements in a for should be enclosed in a block • lib/features/auth/presentation/screens/otp_screen.dart:47:35 • curly_braces_in_flow_control_structures
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/auth/presentation/screens/otp_screen.dart:85:50 • deprecated_member_use
+   info • Statements in an if should be enclosed in a block • lib/features/auth/presentation/screens/otp_screen.dart:233:13 • curly_braces_in_flow_control_structures
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/auth/presentation/screens/otp_screen.dart:239:30 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/auth/presentation/screens/phone_number_screen.dart:114:52 • deprecated_member_use
+   info • Don't use 'BuildContext's across async gaps • lib/features/init/splash_screen.dart:68:15 • use_build_context_synchronously
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/init/splash_screen.dart:132:60 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/init/splash_screen.dart:145:62 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/features/init/splash_screen.dart:200:62 • deprecated_member_use
+   info • Unnecessary use of multiple underscores • lib/shared/presentation/screens/payment_webview_screen.dart:81:35 • unnecessary_underscores
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/shared/widgets/custom_password_field.dart:55:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/shared/widgets/custom_password_field.dart:75:58 • deprecated_member_use
+warning • This class (or a class that this class inherits from) is marked as '@immutable', but one or more of its instance fields aren't final: CustomPhoneField.maxHeight • lib/shared/widgets/custom_phone_field.dart:6:7 • must_be_immutable
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/shared/widgets/custom_text_field.dart:65:42 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/shared/widgets/custom_text_field.dart:75:61 • deprecated_member_use
+   info • 'withOpacity' is deprecated and shouldn't be used. Use .withValues() to avoid precision loss • lib/shared/widgets/custom_text_field.dart:102:40 • deprecated_member_use
+
+47 issues found. (ran in 2.2s)

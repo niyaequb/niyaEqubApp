@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    UNUSED. Superseded by drawable-xxxhdpi/android12splash_fitted.png.
+
+    This inset the generated full-bleed android12splash.png to keep it inside
+    Android 12's circular icon mask. It worked, but tuning one percentage
+    against an image whose own margins were unknown meant it was either
+    clipping the wordmark or shrinking the mark too far. The replacement is a
+    1152x1152 PNG with the artwork already sized to the platform's spec, which
+    removes the guesswork.
+
+    Kept only so a rollback is one line in values-v31/styles.xml. Safe to
+    delete along with this comment.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/splash"
+    android:insetLeft="18%"
+    android:insetRight="18%"
+    android:insetTop="18%"
+    android:insetBottom="18%" />

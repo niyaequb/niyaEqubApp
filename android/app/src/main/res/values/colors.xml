@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Colours shared by the native launch screen and the window shown while the
+    Flutter engine warms up. Keeping them in one place is what stops the app
+    flashing a different colour partway through startup.
+
+    These must stay in step with SplashScreen's background in
+    lib/features/init/splash_screen.dart and with the `color` / `color_dark`
+    values in pubspec.yaml's flutter_native_splash block.
+-->
+<resources>
+    <color name="splash_background">#FFFFFFFF</color>
+</resources>

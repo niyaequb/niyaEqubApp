@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    A deliberately empty Android 12+ splash icon.
+
+    Android 12 draws windowSplashScreenAnimatedIcon in a fixed 288dp container
+    and masks it to a 192dp circle. There is no attribute to enlarge it, so any
+    logo placed there is small and visibly ringed — the "border" the mark kept
+    appearing inside.
+
+    Pointing the icon at nothing makes the system splash a plain white screen,
+    which then hands straight over to NormalTheme. NormalTheme uses
+    launch_background, an ordinary window background with no size cap, so the
+    logo can be drawn as large as we like there and in the Flutter splash that
+    follows.
+
+    Trade-off, stated plainly: the first ~200ms of a cold start is now white
+    with no logo. In exchange the logo is full width for the rest of start-up
+    instead of small and ringed for all of it.
+
+    To go back to a visible system icon, point windowSplashScreenAnimatedIcon
+    at @drawable/android12splash_fitted in both values-v31 files.
+-->
+<color xmlns:android="http://schemas.android.com/apk/res/android"
+    android:color="@android:color/transparent" />

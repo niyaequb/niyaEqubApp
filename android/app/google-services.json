@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "645575499795",
+    "project_id": "niya-equb",
+    "storage_bucket": "niya-equb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:645575499795:android:119c266f4cab738031dfe6",
+        "android_client_info": {
+          "package_name": "com.niyaet.ekub"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA3vlN55P0N2TH1EfLlEaF4xjaWuxbleF4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

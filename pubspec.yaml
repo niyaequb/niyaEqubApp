@@ -1,0 +1,217 @@
+name: niya_equb
+description: "Niya Umrah Equb Management Application"
+# The following line prevents the package from being accidentally published to
+# pub.dev using `flutter pub publish`. This is preferred for private packages.
+publish_to: "none" # Remove this line if you wish to publish to pub.dev
+
+# The following defines the version and build number for your application.
+# A version number is three numbers separated by dots, like 1.2.43
+# followed by an optional build number separated by a +.
+# Both the version and the builder number may be overridden in flutter
+# build by specifying --build-name and --build-number, respectively.
+# In Android, build-name is used as versionName while build-number used as versionCode.
+# Read more about Android versioning at https://developer.android.com/studio/publish/versioning
+# In iOS, build-name is used as CFBundleShortVersionString while build-number is used as CFBundleVersion.
+# Read more about iOS versioning at
+# https://developer.apple.com/library/archive/documentation/General/Reference/InfoPlistKeyReference/Articles/CoreFoundationKeys.html
+# In Windows, build-name is used as the major, minor, and patch parts
+# of the product and file versions while build-number is used as the build suffix.
+# versionCode is the number after the +, and Play keys every release on it.
+#
+# This was 1.0.0+11, which is the EXACT version already live in production
+# (830 installs, published 11 Jul 2026). Play rejects an upload whose
+# versionCode already exists, and a sideloaded APK at the same code cannot
+# replace an installed one either — so the build being handed to the client
+# for testing could never install as an update over what they already had.
+#
+# Bump this on every build you hand out, without exception. A tester on an
+# unknown version is a bug report you cannot act on.
+version: 1.0.1+15
+environment:
+  sdk: ^3.10.7
+
+# Dependencies specify other packages that your package needs in order to work.
+# To automatically upgrade your package dependencies to the latest versions
+# consider running `flutter pub upgrade --major-versions`. Alternatively,
+# dependencies can be manually updated by changing the version numbers below to
+# the latest version available on pub.dev. To see which dependencies have newer
+# versions available, run `flutter pub outdated`.
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # The following adds the Cupertino Icons font to your application.
+  # Use with the CupertinoIcons class for iOS style icons.
+  cupertino_icons: ^1.0.8
+  google_fonts: ^7.0.2
+  hive_flutter: ^1.1.0
+  flutter_screenutil: ^5.9.3
+  flutter_bloc: ^9.1.1
+  equatable: ^2.0.8
+  dio: ^5.9.0
+  get_it: ^9.2.0
+  get: ^4.7.3
+  intl: ^0.20.2
+  shared_preferences: ^2.5.4
+  dartz: ^0.10.1
+  fluttertoast: ^9.0.0
+  flutter_secure_storage: ^10.0.0
+  image_picker: ^1.2.1
+  share_plus: ^10.1.4
+  table_calendar: ^3.1.2
+  webview_flutter: ^4.10.0
+  url_launcher: ^6.3.1
+  firebase_messaging: ^16.1.2
+  # Declared explicitly because main.dart calls Firebase.initializeApp()
+  # directly. It was only arriving as a transitive dependency of
+  # firebase_messaging, which means a future messaging upgrade could move or
+  # drop it underneath a direct call site. Version matches what the solver
+  # already picks, so this is a no-op for resolution.
+  firebase_core: ^4.5.0
+  flutter_local_notifications: ^21.0.0
+
+  # --- Ibada (Islamic) Center ---
+  # Prayer times and Qibla need a coarse position; low accuracy is plenty.
+  geolocator: ^14.0.0
+  # Raw magnetometer + accelerometer for the tilt-compensated Qibla compass.
+  # Deliberately not flutter_compass: it has been unmaintained for years and
+  # breaks on current AGP.
+  sensors_plus: ^6.1.0
+  # Quran recitation. just_audio drives playback; just_audio_background wires
+  # it into the platform media session, which is what produces the notification
+  # shade controls, lock-screen transport, headset buttons and Android Auto.
+  # audioplayers was used here originally and had to go — it is an output sink
+  # with no MediaSession, so the OS has nothing to render controls from.
+  #
+  # Ranged rather than pinned: just_audio_background's beta line tracks
+  # just_audio closely, and an exact pin on one routinely makes the other
+  # unsolvable.
+  #
+  # Lower bound raised to 0.10.0 because quran_audio_controller.dart now calls
+  # setAudioSources(), which does not exist before that. It replaced
+  # setAudioSource(ConcatenatingAudioSource(...)), deprecated in 0.10 — a
+  # machine resolving 0.9.x under the old floor would have analysed clean and
+  # then failed to compile.
+  just_audio: ">=0.10.0 <0.11.0"
+  just_audio_background: ^0.0.1-beta.16
+  # Direct, not transitive. just_audio_background already pulls audio_service
+  # in (0.18.19 is what the solver picks), but a transitive dependency is not
+  # on the app module's Kotlin compile classpath — which is why the previous
+  # MainActivity subclassing AudioServiceActivity died in release with
+  # "Unresolved reference 'AudioServiceActivity'" and had to be renamed to
+  # MainActivity.kt.removed. Declaring it here is the prerequisite the manifest
+  # comment calls for, and it is what lets MainActivity exist again so the
+  # mosque-mode MethodChannel has somewhere to live.
+  #
+  # Version matches what was already resolving, so this is a no-op for the
+  # solver rather than a new constraint.
+  audio_service: ^0.18.19
+  # zonedSchedule needs a tz database; flutter_timezone resolves the device's
+  # IANA name so the adhan survives DST and travel. Pinned to 0.11.x to match
+  # what flutter_local_notifications 21 already resolves — declaring ^0.10.0
+  # here would make the solve fail.
+  timezone: ^0.11.0
+  flutter_timezone: ^4.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_launcher_icons: ^0.14.4
+  # Generator only — the runtime preserve()/remove() API is deliberately not
+  # used, because on Android 12+ it pins the platform splash and hides the
+  # NormalTheme window that actually carries the logo.
+  #
+  # CAUTION: `dart run flutter_native_splash:create` overwrites
+  # values-v31/styles.xml and values-night-v31/styles.xml and undoes the
+  # Android 12 icon fix. Re-apply those two files if it is ever re-run.
+  flutter_native_splash: ^2.4.4
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^6.0.0
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+
+  # To add assets to your application, add an assets section, like this:
+  assets:
+    - assets/images/
+    - assets/images/ibada/
+    - assets/lang/
+
+  # An image asset can refer to one or more resolution-specific "variants", see
+  # https://flutter.dev/to/resolution-aware-images
+
+  # For details regarding adding assets from package dependencies, see
+  # https://flutter.dev/to/asset-from-package
+
+  # To add custom fonts to your application, add a fonts section here,
+  # in this "flutter" section. Each entry in this list should have a
+  # "family" key with the font family name, and a "fonts" key with a
+  # list giving the asset and other descriptors for the font. For
+  # example:
+  # fonts:
+  #   - family: Schyler
+  #     fonts:
+  #       - asset: fonts/Schyler-Regular.ttf
+  #       - asset: fonts/Schyler-Italic.ttf
+  #         style: italic
+  #   - family: Trajan Pro
+  #     fonts:
+  #       - asset: fonts/TrajanPro.ttf
+  #       - asset: fonts/TrajanPro_Bold.ttf
+  #         weight: 700
+  #
+# For details regarding fonts from package dependencies,
+# see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/images/new-logo.png"
+
+# Native launch screen. This is what fills the gap between tapping the icon and
+# Flutter's first frame, so the logo is on screen from the very first moment
+# instead of a black window.
+#
+# The colour matches the SplashScreen widget's background exactly, so the
+# handover from native to Flutter is invisible — no flash, no colour change.
+flutter_native_splash:
+  color: "#FFFFFF"
+  image: assets/images/Loading.png
+  # Dark mode is deliberately the SAME white. A dark splash on a dark-mode
+  # phone looks identical to the black-screen bug this exists to prevent, and
+  # the logo is drawn for a light background.
+  color_dark: "#FFFFFF"
+  image_dark: assets/images/Loading.png
+
+  android: true
+  ios: true
+  web: false
+
+  # Android 12+ ignores the old launch drawable and uses its own SplashScreen
+  # API instead, which is exactly why the logo never appeared on newer phones.
+  # This block is what makes it show there.
+  #
+  # Android 12 masks this icon into a circle and only the middle ~2/3 is
+  # visible, so a full-bleed logo gets cropped. If the mark looks clipped on
+  # screen, supply a padded 1152x1152 PNG with the logo inside the centre
+  # 768x768 and point `image` below at that instead.
+  android_12:
+    color: "#FFFFFF"
+    color_dark: "#FFFFFF"
+    image: assets/images/Loading.png
+    image_dark: assets/images/Loading.png
+
+  # Full screen off: the status bar stays visible, matching the app itself.
+  fullscreen: false

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 12+ (API 31) launch screen.
+
+         windowSplashScreenAnimatedIcon MUST be set. Omitted, the platform
+         substitutes the launcher icon — the circular Kaaba photo — instead of
+         the Niya logo. It points at the inset drawable because Android masks
+         this icon into a circle showing only the inner two-thirds, and the
+         generated PNG is full-bleed.
+
+         windowSplashScreenIconBackgroundColor is deliberately NOT set. With an
+         icon background Android uses the 240dp icon spec, of which only the
+         inner 160dp is visible. Without one it uses the 288dp spec with 192dp
+         visible — a fifth larger. The icon slot size is fixed by the OS, so
+         this and the inset percentage are the only two levers on how large the
+         mark can appear here.
+
+         WARNING: `dart run flutter_native_splash:create` overwrites this file
+         and reverts all of the above. -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+        <!-- Static icon: nothing to animate, so hand over to NormalTheme as
+             soon as the engine is ready. -->
+        <item name="android:windowSplashScreenAnimationDuration">0</item>
+        <item name="android:forceDarkAllowed">false</item>
+        <item name="android:windowFullscreen">false</item>
+        <item name="android:windowDrawsSystemBarBackgrounds">false</item>
+        <item name="android:windowLayoutInDisplayCutoutMode">shortEdges</item>
+        <item name="android:windowSplashScreenBackground">#FFFFFF</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/android12splash</item>
+    </style>
+    <!-- The window between the system splash and Flutter's first frame. Uses
+         the launch drawable, which draws the logo at a full 300dp rather than
+         inside the OS's small icon slot. -->
+    <style name="NormalTheme" parent="@android:style/Theme.Light.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+</resources>
