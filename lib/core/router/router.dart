@@ -44,6 +44,9 @@ class AppRouter {
             drawType: args['drawType'],
             winnerName: args['winnerName'],
             candidates: args['candidates'],
+            // Set when resuming after the bank app reloaded the page.
+            awaitReference: args['awaitReference'] as String?,
+            awaitQuietly: args['awaitQuietly'] == true,
           ),
         );
       case EkubMainScreen.routeName:

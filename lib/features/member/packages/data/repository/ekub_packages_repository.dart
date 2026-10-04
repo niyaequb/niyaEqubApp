@@ -8,6 +8,7 @@ import 'package:niya_equb/core/init/network_constant.dart';
 import 'package:niya_equb/core/service/app_cache.dart';
 import 'package:niya_equb/core/service/dio_error_handler.dart';
 import 'package:niya_equb/core/service/exceptions.dart';
+import 'package:niya_equb/core/service/payments/payment_bridge.dart';
 import 'package:niya_equb/core/util/logger.dart';
 
 typedef ResultFuture<T> = Future<Either<Failure, T>>;
@@ -220,42 +221,376 @@ class EkubPackagesRepository {
     }
   }
 
-  /// Initiates equb payment via Chapa
-  ResultFuture<String> initiateEqubPayment({
+  /// Records one contribution and gets back a signed bank order.
+  ///
+  /// Returns a [PaymentSession] rather than a URL. Under a hosted checkout this
+  /// handed back a link to open in a browser; these bank integrations have no
+  /// such page — the order is authorised inside the bank's own app, from a
+  /// payload the server signed. See PaymentBridge.
+  ///
+  /// [provider] is a gateway slug from GET /api/payments/providers. It is
+  /// required rather than defaulted: with several banks live, silently picking
+  /// one would charge a member through a bank they did not choose.
+  ///
+  /// [customerIdentifier] is who the bank's own host app says is using it,
+  /// from PaymentBridge.fetchCustomerIdentifier(). The server mints this
+  /// order's bank access token from it; without a token the bank refuses the
+  /// order as an incomplete request, whatever the payload says. Optional
+  /// because it does not exist outside a host app — the server falls back to a
+  /// configured identifier, which is what makes UAT testable from a browser.
+  ResultFuture<PaymentSession> initiateEqubPayment({
     required int membershipId,
     required double amount,
     required String paymentDate,
+    required String provider,
+    String? customerIdentifier,
   }) async {
     try {
+      // Asked of the host app now rather than held from sign-in, so the token
+      // the bank mints belongs to whoever is actually at the phone.
+      final identifier = customerIdentifier ?? await _customerIdentifier(provider);
+
       final data = {
         'equb_membership_id': membershipId,
         'amount': amount,
-        'payment_method': 'chapa',
+        'payment_method': provider,
         'payment_date': paymentDate,
+        // Omitted rather than sent null: the server distinguishes "the client
+        // could not ask" from "the client asked and got nothing".
+        if (identifier != null && identifier.isNotEmpty)
+          'customer_identifier': identifier,
       };
       logger(data);
       final result = await dio.post(MemberEndpoints.equbPayments(), data: data);
-      final raw = result.data;
-      final checkoutUrl =
-          (raw is Map &&
-              raw['data'] != null &&
-              raw['data'] is Map &&
-              raw['data']['checkout_url'] != null)
-          ? raw['data']['checkout_url']
-          : (raw is Map
-                ? (raw['checkout_url'] ??
-                      (raw['data'] is String ? raw['data'] : null))
-                : null);
 
-      if (checkoutUrl == null) {
-        throw ServerException("Failed to get payment URL", result.statusCode);
+      final session = PaymentSession.tryParse(result.data);
+      if (session == null) {
+        throw ServerException(
+          "Failed to start the payment",
+          result.statusCode,
+        );
       }
-      return Right(checkoutUrl.toString());
+
+      return Right(session);
     } on DioException catch (e) {
       return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
     } catch (e) {
       return Left(ServerFailure(e.toString(), null));
     }
+  }
+
+  /// The banks a member can pay through right now.
+  ///
+  /// Asked of the server rather than hardcoded. Niya collects through several
+  /// banks and the list changes without an app release; a client-side list
+  /// would offer banks that had been switched off and miss ones that had been
+  /// added.
+  ResultFuture<List<PaymentClientConfig>> fetchPaymentProviders() async {
+    try {
+      final result = await dio.get(MemberEndpoints.paymentProviders());
+      final list = _unwrapList(result.data, ['providers']);
+
+      return Right(
+        list
+            .whereType<Map<String, dynamic>>()
+            .map(PaymentClientConfig.fromJson)
+            .toList(growable: false),
+      );
+    } on DioException catch (e) {
+      return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
+    } catch (e) {
+      return Left(ServerFailure(e.toString(), null));
+    }
+  }
+
+  /// Provider descriptors, remembered for the session.
+  ///
+  /// The list changes only when an operator configures or withdraws a bank on
+  /// the server, so re-fetching it on every tap would buy nothing and cost a
+  /// round trip on the slowest screen in the app. A stale entry costs one
+  /// failed payment and is gone by the next app start.
+  static List<PaymentClientConfig>? _providerCache;
+
+  /// Who the bank's host app says is using the mini app.
+  ///
+  /// THE BANK MINTS THE ORDER'S ACCESS TOKEN FROM THIS, so in production it
+  /// must be the live customer. A token issued for one person, against a
+  /// payment another person authorises with their PIN, is refused — and during
+  /// UAT that surfaced as "invalid signature", with nothing to indicate the
+  /// cause. Dashen confirmed on 16 Sep 2026: hard-coding one is acceptable for
+  /// testing, never for production.
+  ///
+  /// Returns null wherever there is no host app to ask — a phone, or a browser
+  /// tab opened outside the SuperApp. The server then falls back to its
+  /// configured identifier, which is what keeps UAT testable from a desk and
+  /// which must be cleared before go-live.
+  ///
+  /// NEVER THROWS. Failing to identify the customer is not a reason to abandon
+  /// a payment the server may still be able to complete; the request simply
+  /// goes without the field, and the server decides.
+  /// Who the bank's host app says is using it, and which bank that is.
+  ///
+  /// For signing in without a password when the app starts inside a bank
+  /// super-app (see AuthRepository.signInWithHostApp). Walks the live banks
+  /// and asks the first one whose host app is actually present.
+  ///
+  /// Null on a phone, in an ordinary browser tab, when no bank is configured,
+  /// or when the host app does not answer — every one of which just means
+  /// "use the ordinary login screen". NEVER THROWS.
+  Future<({String provider, String identifier, String? appCode, String? stage})?>
+      hostAppIdentity() async {
+    try {
+      if (!PaymentBridges.supportedOnThisPlatform) return null;
+
+      final result = await fetchPaymentProviders();
+      final providers = result.fold<List<PaymentClientConfig>>(
+        (_) => const <PaymentClientConfig>[],
+        (list) => list,
+      );
+      if (providers.isNotEmpty) _providerCache = providers;
+
+      for (final config in providers) {
+        if (config.slug.trim().isEmpty) continue;
+
+        final bridge = PaymentBridges.of(config);
+        if (!bridge.isAvailable) continue;
+
+        final identifier = (await bridge.fetchCustomerIdentifier())?.trim();
+        if (identifier == null || identifier.isEmpty) continue;
+
+        return (
+          provider: config.slug,
+          identifier: identifier,
+          appCode: config.appCode,
+          stage: config.stage,
+        );
+      }
+      return null;
+    } catch (e) {
+      logger('Could not read the host app identity: $e');
+      return null;
+    }
+  }
+
+  /// The payment this member tried most recently, if it was within
+  /// [withinMinutes] — whatever has happened to it since.
+  ///
+  /// The server-side twin of PreferencesService.takePaymentReturn(). The
+  /// local note is lost whenever the SuperApp's reload wipes the page's
+  /// storage — which is also when the member finds themselves signed out, the
+  /// case Dashen's QA reported — but the server still has the payment, and
+  /// that is enough to reopen the Equb and show where it stands.
+  ///
+  /// The newest ATTEMPT, not the newest pending one. A member who cancelled
+  /// one attempt and then paid with a second must be shown the second, even
+  /// once it has been confirmed; picking the cancelled one would reopen the
+  /// Equb on a payment that is going nowhere. Whatever its status, the Equb
+  /// screen reports it correctly: confirmed, declined, or still confirming.
+  ///
+  /// NEVER THROWS, and gives up after a few seconds: nothing here is worth
+  /// holding the member up for.
+  Future<({int groupId, String reference})?> latestPaymentAttempt({
+    int withinMinutes = 5,
+  }) async {
+    try {
+      final result = await dio
+          .get(
+            MemberEndpoints.equbPayments(),
+            queryParameters: {
+              'recent_minutes': withinMinutes,
+              'per_page': 1,
+            },
+          )
+          .timeout(const Duration(seconds: 5));
+
+      for (final raw in _unwrapList(result.data, const ['payments'])
+          .whereType<Map<String, dynamic>>()) {
+        final group = raw['equb_group_id'];
+        final groupId = group is int ? group : int.tryParse('${group ?? ''}');
+        final batch = raw['batch_reference']?.toString() ?? '';
+        final reference =
+            batch.isNotEmpty ? batch : (raw['reference']?.toString() ?? '');
+
+        if (groupId != null && reference.isNotEmpty) {
+          return (groupId: groupId, reference: reference);
+        }
+      }
+      return null;
+    } catch (e) {
+      logger('Could not look up a payment in flight: $e');
+      return null;
+    }
+  }
+
+  Future<String?> _customerIdentifier(String provider) async {
+    try {
+      // On a phone there is no host app at all, so this costs nothing rather
+      // than a wasted round trip before an answer that is always null.
+      if (!PaymentBridges.supportedOnThisPlatform) return null;
+
+      // Declared non-nullable, and fold's type argument given explicitly.
+      // Left to infer from the assignment target, dartz picks up the nullable
+      // type of the cache, the local never promotes, and neither isNotEmpty
+      // nor the loop below will compile.
+      List<PaymentClientConfig> providers = _providerCache ?? const [];
+
+      if (providers.isEmpty) {
+        final result = await fetchPaymentProviders();
+
+        providers = result.fold<List<PaymentClientConfig>>(
+          (_) => const <PaymentClientConfig>[],
+          (list) => list,
+        );
+
+        if (providers.isNotEmpty) _providerCache = providers;
+      }
+
+      PaymentClientConfig? config;
+      for (final entry in providers) {
+        if (entry.slug == provider) {
+          config = entry;
+          break;
+        }
+      }
+
+      if (config == null) return null;
+
+      final bridge = PaymentBridges.of(config);
+      if (!bridge.isAvailable) return null;
+
+      return await bridge.fetchCustomerIdentifier();
+    } catch (e) {
+      logger('Could not read the customer identifier: $e');
+      return null;
+    }
+  }
+
+  /// Settles several contributions under one bank transaction.
+  ///
+  /// A member who holds places for "My Responsibility People" owes one
+  /// contribution per place, every round. Each place keeps its own payment
+  /// record on the server; this charges the member once, for the total.
+  ///
+  /// The amount is deliberately not sent — the server reads each place's
+  /// contribution from its own membership, so the client cannot understate
+  /// what is owed. That mattered under Chapa and matters more now: the total
+  /// is signed into the order, so a client-supplied figure would be signing
+  /// its own price.
+  ///
+  /// [customerIdentifier] carries the same meaning as on the single-payment
+  /// call above.
+  ResultFuture<PaymentSession> initiateBatchEqubPayment({
+    required List<int> membershipIds,
+    required String paymentDate,
+    required String provider,
+    String? customerIdentifier,
+  }) async {
+    try {
+      final identifier = customerIdentifier ?? await _customerIdentifier(provider);
+
+      final data = {
+        'equb_membership_ids': membershipIds,
+        'payment_method': provider,
+        'payment_date': paymentDate,
+        if (identifier != null && identifier.isNotEmpty)
+          'customer_identifier': identifier,
+      };
+      logger(data);
+
+      final result = await dio.post(
+        MemberEndpoints.equbPaymentsBatch(),
+        data: data,
+      );
+
+      final session = PaymentSession.tryParse(result.data);
+      if (session == null) {
+        throw ServerException(
+          "Failed to start the payment",
+          result.statusCode,
+        );
+      }
+
+      return Right(session);
+    } on DioException catch (e) {
+      return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
+    } catch (e) {
+      return Left(ServerFailure(e.toString(), null));
+    }
+  }
+}
+
+/// One signed bank order, ready to hand to that bank's app.
+///
+/// Both payload maps are the server's own bytes and are passed through
+/// untouched. The order carries an HMAC over its own contents, so normalising
+/// a number or re-ordering a key here would make the bank reject it — which is
+/// exactly the protection that lets the amount be server-derived.
+///
+/// [client] is why the apps need no per-bank code: it says which host app to
+/// talk to and how, so the same screen presents a Dashen order and a CBE order
+/// without knowing either bank exists.
+class PaymentSession {
+  final Map<String, dynamic> orderPayload;
+  final Map<String, dynamic> authPayload;
+  final String reference;
+
+  /// Which bank signed this order.
+  final String provider;
+
+  /// How to reach that bank's app. Null on a response from an older server,
+  /// which the payment screen renders as "not available here" rather than
+  /// guessing a bridge name.
+  final PaymentClientConfig? client;
+
+  /// Present on a batch, null on a single contribution.
+  final double? totalAmount;
+  final int? contributions;
+
+  const PaymentSession({
+    required this.orderPayload,
+    required this.authPayload,
+    required this.reference,
+    required this.provider,
+    this.client,
+    this.totalAmount,
+    this.contributions,
+  });
+
+  /// Reads a session out of a create-payment response, or null if the response
+  /// does not carry one.
+  ///
+  /// Null rather than an exception, so the caller decides what to say. A
+  /// response without an order is a server-side failure the member cannot act
+  /// on, and it should not surface as a parse error.
+  static PaymentSession? tryParse(dynamic raw) {
+    if (raw is! Map) return null;
+
+    final order = raw['order_payload'];
+    final auth = raw['auth_payload'];
+    final reference = raw['reference'];
+
+    if (order is! Map || reference == null) return null;
+
+    final total = raw['total_amount'];
+    final client = raw['client'];
+
+    return PaymentSession(
+      orderPayload: Map<String, dynamic>.from(order),
+      authPayload: auth is Map
+          ? Map<String, dynamic>.from(auth)
+          : const <String, dynamic>{},
+      reference: reference.toString(),
+      provider: raw['provider']?.toString() ?? '',
+      client: client is Map
+          ? PaymentClientConfig.fromJson(Map<String, dynamic>.from(client))
+          : null,
+      totalAmount: total is num
+          ? total.toDouble()
+          : (total is String ? double.tryParse(total) : null),
+      contributions: raw['contributions'] is int
+          ? raw['contributions'] as int
+          : int.tryParse(raw['contributions']?.toString() ?? ''),
+    );
   }
 }
 
@@ -412,6 +747,48 @@ class EqubGroup {
 
   bool get isJoined => memberships != null && memberships!.isNotEmpty;
 
+  // ------------------------------------------------------------------
+  // The caller's places in this Equb
+  //
+  // `memberships` is scoped by the API to the signed-in member: their own
+  // membership plus every place they hold for someone under "My Responsibility
+  // People". Reading `.first` gives their own place and nothing else, which is
+  // why the payment screen used to quote one contribution when several were
+  // owed. These getters are the honest reads.
+  // ------------------------------------------------------------------
+
+  /// Every place the signed-in member pays for here — their own and any held
+  /// for other people.
+  List<EqubMembership> get myPlaces => memberships ?? const [];
+
+  /// The member's own membership. Null if they only hold places for others,
+  /// which the API allows but the app does not currently create.
+  EqubMembership? get myMembership {
+    for (final m in myPlaces) {
+      if (!m.isResponsibilitySeat) return m;
+    }
+    return myPlaces.isNotEmpty ? myPlaces.first : null;
+  }
+
+  /// Places held for someone else, in the order the API returned them.
+  List<EqubMembership> get myResponsibilityPlaces =>
+      myPlaces.where((m) => m.isResponsibilitySeat).toList(growable: false);
+
+  /// What the member owes for one round across every place they pay for.
+  ///
+  /// Summed from each place's own contribution rather than multiplying the
+  /// group amount by a head-count, so a place that joined on a different
+  /// package or amount is still counted at what it actually costs.
+  double get myRoundTotal {
+    if (myPlaces.isEmpty) return (birrPerDay ?? 0).toDouble();
+
+    var total = 0.0;
+    for (final m in myPlaces) {
+      total += m.contributionAmount ?? (birrPerDay ?? 0).toDouble();
+    }
+    return total;
+  }
+
   EqubGroup copyWith({
     int? id,
     String? equbPackageId,
@@ -506,6 +883,30 @@ class EqubMembership {
   final double? contributedAmount;
   final double? expectedTotalAmount;
   final double? remainingAmount;
+  /// The server's verdict on whether this membership may be left.
+  ///
+  /// Null when the payload has no `can_leave` key at all — an older backend,
+  /// a cached response written before this shipped, or a resource that does
+  /// not serialise it. That is a genuinely different case from `false`, and
+  /// collapsing the two is what removed the Leave button from members who had
+  /// every right to it. Read [canLeaveEqub], not this.
+  final bool? serverCanLeave;
+  final String? exitBlockReason;
+  final bool hasReceivedPayout;
+
+  /// True when this row is a place held for someone with no Niya account —
+  /// "My Responsibility People". It owes a contribution every round like any
+  /// other place; the difference is only that [sponsorName] pays it.
+  final bool isResponsibilitySeat;
+
+  /// Whose place this is. The member's own name on a normal membership, the
+  /// name the sponsor typed in on a held place.
+  final String? displayName;
+  final String? sponsorName;
+  final int? sponsorMemberId;
+  final String? relation;
+
+  final double? totalWonAmount;
   final EqubGroup? equbGroup;
   final Map<String, dynamic>? member;
   final List<EqubPayment>? payments;
@@ -531,6 +932,15 @@ class EqubMembership {
     this.contributedAmount,
     this.expectedTotalAmount,
     this.remainingAmount,
+    this.serverCanLeave,
+    this.exitBlockReason,
+    this.hasReceivedPayout = false,
+    this.isResponsibilitySeat = false,
+    this.displayName,
+    this.sponsorName,
+    this.sponsorMemberId,
+    this.relation,
+    this.totalWonAmount,
     this.equbGroup,
     this.member,
     this.payments,
@@ -636,6 +1046,24 @@ class EqubMembership {
           : (json['remaining_amount'] is String
                 ? double.tryParse(json['remaining_amount'])
                 : null),
+      // Absent key stays null; only an explicit value becomes a bool.
+      serverCanLeave:
+          json.containsKey('can_leave') ? json['can_leave'] == true : null,
+      exitBlockReason: json['exit_block_reason']?.toString(),
+      hasReceivedPayout:
+          json['has_received_payout'] == true || json['has_won'] == true,
+      isResponsibilitySeat: json['is_responsibility_seat'] == true,
+      displayName: json['display_name']?.toString(),
+      sponsorName: json['sponsor_name']?.toString(),
+      sponsorMemberId: json['sponsor_member_id'] == null
+          ? null
+          : int.tryParse(json['sponsor_member_id'].toString()),
+      relation: json['responsibility_relation']?.toString(),
+      totalWonAmount: json['total_won_amount'] is num
+          ? (json['total_won_amount'] as num).toDouble()
+          : (json['total_won_amount'] is String
+                ? double.tryParse(json['total_won_amount'])
+                : null),
       equbGroup: group,
       member: json['member'] as Map<String, dynamic>?,
       payments: json['payments'] != null
@@ -659,6 +1087,73 @@ class EqubMembership {
       equbGroup?.name ??
       equbGroup?.packageName ??
       'Equb #${equbGroupId ?? id}';
+
+  /// Whether to offer the Leave button.
+  ///
+  /// Three cases, in order:
+  ///
+  ///   1. The server answered — use its answer. It can see the draw tables and
+  ///      this cannot, so it is authoritative whenever it speaks.
+  ///   2. No answer, but this member has won — never offer it. `has_won` has
+  ///      been in the payload since long before `can_leave` existed, so this
+  ///      holds even against an old backend.
+  ///   3. No answer, no win — fall back to the original rule: you may leave
+  ///      until your first contribution lands.
+  ///
+  /// Case 3 is why this is not simply "deny unless told otherwise". Failing
+  /// closed on a missing field took the button away from members who had done
+  /// nothing but join, which is a real feature lost to guard against a case
+  /// the win check in step 2 already covers. And the button is not the
+  /// enforcement — the API refuses on its own — so the worst outcome here is
+  /// a request that comes back with a clear reason, not a member walking out
+  /// with the pot.
+  bool get canLeaveEqub {
+    if (serverCanLeave != null) return serverCanLeave!;
+    if (hasReceivedPayout) return false;
+    return (contributedAmount ?? 0) <= 0;
+  }
+
+  /// The name to show for this place. Falls back to the member's own name so
+  /// an older payload without `display_name` still reads correctly.
+  String get placeName =>
+      displayName ?? (member?['full_name']?.toString() ?? 'Member');
+
+  /// The next draw, as a calendar day, when it is today or later.
+  ///
+  /// The server's `next_draw_date` is used while it is still ahead, and its
+  /// null is respected: it means no round is left, including on the day of
+  /// the final draw once that draw has run. Older servers sent the round
+  /// NEAREST to today, which could be yesterday's, and a "next draw" in the
+  /// past reads as a broken app. For such a date the first round on this
+  /// place's own schedule that is still ahead is used instead, or null once
+  /// no round is left.
+  DateTime? get upcomingDrawDate {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+
+    final fromServer = calendarDay(nextDrawDate);
+    if (fromServer == null) return null;
+    if (!fromServer.isBefore(today)) return fromServer;
+
+    final rounds = [
+      for (final row in paymentSchedule ?? const <EqubPaymentSchedule>[])
+        if (calendarDay(row.expectedDate) case final day?) day,
+    ]..sort();
+
+    for (final day in rounds) {
+      if (!day.isBefore(today)) return day;
+    }
+    return null;
+  }
+
+  /// The calendar day a server date names, read from its first ten characters
+  /// ("2026-09-30") so that a timezone offset can never move it to the day
+  /// before or after. Null for anything that is not a date.
+  static DateTime? calendarDay(String? raw) {
+    if (raw == null || raw.length < 10) return null;
+    final parsed = DateTime.tryParse(raw.substring(0, 10));
+    return parsed == null ? null : DateTime(parsed.year, parsed.month, parsed.day);
+  }
 }
 
 class EqubPayment {
@@ -668,12 +1163,22 @@ class EqubPayment {
   final String? paymentDate;
   final String? createdAt;
 
+  /// The merchant order id the bank was sent for this contribution.
+  final String? reference;
+
+  /// Shared by every contribution settled in one charge, when several places
+  /// were paid together. When set, it is this — not [reference] — that the
+  /// bank knows the payment by.
+  final String? batchReference;
+
   EqubPayment({
     this.id,
     this.amount,
     this.status,
     this.paymentDate,
     this.createdAt,
+    this.reference,
+    this.batchReference,
   });
 
   factory EqubPayment.fromJson(Map<String, dynamic> json) {
@@ -691,11 +1196,24 @@ class EqubPayment {
       status: json['status']?.toString(),
       paymentDate: json['payment_date']?.toString(),
       createdAt: json['created_at']?.toString(),
+      reference: json['reference']?.toString(),
+      batchReference: json['batch_reference']?.toString(),
     );
   }
 
   bool get isPaid =>
       status?.toLowerCase() == 'paid' || status?.toLowerCase() == 'successful';
+
+  /// Authorised or attempted, and not yet confirmed either way by the bank.
+  bool get isPending => status?.toLowerCase() == 'pending';
+
+  bool get isFailed => status?.toLowerCase() == 'failed';
+
+  /// True when this row is the contribution, or one of the contributions,
+  /// behind the bank order [bankReference].
+  bool belongsTo(String bankReference) =>
+      bankReference.isNotEmpty &&
+      (reference == bankReference || batchReference == bankReference);
 }
 
 class EqubDraw {

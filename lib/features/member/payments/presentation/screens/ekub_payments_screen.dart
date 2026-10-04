@@ -94,7 +94,7 @@ class EkubPaymentsScreen extends StatelessWidget {
             child: Padding(
               padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 12.h),
               child: RoundedButton(
-                label: 'pay_with_chapa'.tr,
+                label: 'pay_now'.tr,
                 height: 50.h,
                 backgroundColor: appColors.primaryColor,
                 foregroundColor: Colors.black.withValues(alpha: 0.85),
@@ -143,7 +143,7 @@ class EkubPaymentsScreen extends StatelessWidget {
                   children: [
                     Expanded(
                       child: CustomText(
-                        title: 'chapa_payment_ui'.tr,
+                        title: 'payment_ui'.tr,
                         fontSize: 16.sp,
                         fontWeight: FontWeight.w800,
                         textColor: appColors.titleTextColor,
@@ -315,18 +315,21 @@ class _PaymentTile extends StatelessWidget {
 
     final color = switch (item.status) {
       EkubPaymentStatus.paid => Colors.green,
+      EkubPaymentStatus.pending => Colors.blue,
       EkubPaymentStatus.unpaid => Colors.orange, // or Red for past due
       EkubPaymentStatus.future => Colors.blueGrey,
     };
 
     final statusLabel = switch (item.status) {
       EkubPaymentStatus.paid => 'Paid',
+      EkubPaymentStatus.pending => 'pending'.tr,
       EkubPaymentStatus.unpaid => 'Unpaid', // Or "Past Due"
       EkubPaymentStatus.future => 'Upcoming',
     };
 
     final icon = switch (item.status) {
       EkubPaymentStatus.paid => Icons.check_circle_rounded,
+      EkubPaymentStatus.pending => Icons.hourglass_top_rounded,
       EkubPaymentStatus.unpaid => Icons.priority_high_rounded,
       EkubPaymentStatus.future => Icons.event_rounded,
     };
@@ -395,7 +398,11 @@ class _PaymentTile extends StatelessWidget {
                 ),
                 SizedBox(height: 2.h),
                 CustomText(
-                  title: item.method,
+                  // .tr so a translation key (the pending label) reads as
+                  // words; every other label is plain text and passes through
+                  // unchanged, because GetX returns the input when no key
+                  // matches.
+                  title: item.method.tr,
                   fontSize: 11.sp,
                   fontWeight: FontWeight.w500,
                   textColor: appColors.bodyTextSmallColor,

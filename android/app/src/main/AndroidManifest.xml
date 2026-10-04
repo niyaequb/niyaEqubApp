@@ -100,6 +100,7 @@
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize">
             
             <meta-data
@@ -129,5 +130,12 @@
             <action android:name="android.intent.action.PROCESS_TEXT"/>
             <data android:mimeType="text/plain"/>
         </intent>
+
+        <!-- Pay: Equb contributions are paid in the Dashen SuperApp, and Pay
+             opens it when it is installed. Android 11 and later hide other
+             apps unless they are listed here, so without this line the
+             SuperApp always looks uninstalled and Pay goes to the Play Store.
+             See lib/core/service/payments/dashen_superapp.dart. -->
+        <package android:name="com.dashen.dashensuperapp" />
     </queries>
 </manifest>

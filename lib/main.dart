@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+// SystemChrome / DeviceOrientation for the portrait lock in _bootstrap().
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 // One barrel import. The four deep `package:get/get_*/src/...` imports that
@@ -67,6 +69,24 @@ Future<void> _guard(String step, Future<void> Function() action) async {
 
 Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Portrait only, on every screen.
+  //
+  // The layout is built with flutter_screenutil against a portrait design
+  // size, so a landscape frame stretches every widget against a height it was
+  // never measured for — the prayer header, the Equb cards and the bottom bar
+  // all break. Locking here rather than per-screen means no screen can opt
+  // out by accident.
+  //
+  // AndroidManifest also carries android:screenOrientation="portrait" on
+  // MainActivity. Both are needed: the manifest stops the window rotating
+  // before Flutter is alive (so there is no flash of a rotated splash), and
+  // this covers iOS and the handful of OEM skins that honour a forced
+  // orientation only from the app side.
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
 
   // Before anything else that can throw.
   CrashReporter.installDartHandlers();

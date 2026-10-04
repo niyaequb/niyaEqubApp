@@ -10,8 +10,8 @@ import 'package:get/get.dart';
 import 'package:niya_equb/features/member/islamic/logic/prayer_calculator.dart';
 import 'package:niya_equb/features/member/islamic/presentation/islamic_theme.dart';
 
-/// The sky panel at the top of the Ibada Center: day/night background image,
-/// live countdown to the next prayer, and the location chip.
+/// The panel at the top of the Ibada Center: a fixed Makkah photograph, a live
+/// countdown to the next prayer, and the location chip.
 ///
 /// The one-second ticker lives here rather than in the bloc on purpose — a
 /// countdown that re-emitted bloc state every second would rebuild the entire
@@ -81,23 +81,30 @@ class _PrayerHeroHeaderState extends State<PrayerHeroHeader> {
       widget.times.fajr,
     );
 
-    final bgImagePath = isNight
-        ? 'assets/images/ibada/night.png'
-        : 'assets/images/ibada/day.png';
+    // One image, day and night. The ternary that used to pick between day.png
+    // and night.png is gone; both branches pointed at the same file anyway.
+    const bgImagePath = 'assets/images/ibada/header.jpg';
 
     return SizedBox(
-      height: 240.h,
+      // 200 rather than 240. The countdown, the location chip and the safe-area
+      // inset together need about 150 of it; the rest was empty image that
+      // pushed the prayer-times card down the screen for no gain.
+      height: 200.h,
       child: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Photographic background image (day.png / night.png)
+          // 1. Photographic background image (header.jpg)
           ClipRRect(
-            borderRadius: BorderRadius.vertical(
-              bottom: Radius.circular(20.r),
-            ),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20.r)),
             child: Image.asset(
               bgImagePath,
               fit: BoxFit.cover,
+              // Cover has to crop one axis, and this panel is much wider than
+              // it is tall, so the crop falls on the height. Anchoring at the
+              // top keeps the Ka'bah and the logo lockup — which sit in the
+              // upper half of the artwork — in frame; centring threw both away
+              // and left mostly courtyard.
+              alignment: Alignment.topCenter,
               errorBuilder: (context, error, stackTrace) {
                 // Fallback gradient in case asset load fails
                 return DecoratedBox(
@@ -109,28 +116,18 @@ class _PrayerHeroHeaderState extends State<PrayerHeroHeader> {
             ),
           ),
 
-          // 2. Subtle overlay gradient to ensure high text legibility
+          // 2. Flat 20% black, edge to edge.
+          //
+          // Not a gradient any more. The gradient existed to hide a sky that
+          // swapped between a day and a night photograph; with one fixed image
+          // the only job left is taking a little brightness off the whole
+          // frame so white text holds, while leaving the picture plainly
+          // visible. 20% is light enough to read the image through, and the
+          // countdown and label carry their own drop shadows, which is what
+          // lets it stay that light.
           ClipRRect(
-            borderRadius: BorderRadius.vertical(
-              bottom: Radius.circular(24.r),
-            ),
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: isNight
-                      ? [
-                          Colors.black.withValues(alpha: 0.35),
-                          Colors.black.withValues(alpha: 0.55),
-                        ]
-                      : [
-                          Colors.black.withValues(alpha: 0.15),
-                          Colors.black.withValues(alpha: 0.35),
-                        ],
-                ),
-              ),
-            ),
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(24.r)),
+            child: ColoredBox(color: const Color.fromARGB(230, 0, 0, 0).withValues(alpha: 0.20)),
           ),
 
           // 3. Header Text & Interactive Controls
@@ -158,9 +155,7 @@ class _PrayerHeroHeaderState extends State<PrayerHeroHeader> {
   }
 
   Widget _label(bool isNight) {
-    final name = _nextPrayer == null
-        ? ''
-        : 'prayer_${_nextPrayer!.key}'.tr;
+    final name = _nextPrayer == null ? '' : 'prayer_${_nextPrayer!.key}'.tr;
 
     return Text(
       '$name ${'after'.tr}',
@@ -169,11 +164,7 @@ class _PrayerHeroHeaderState extends State<PrayerHeroHeader> {
         fontWeight: FontWeight.w600,
         color: Colors.white,
         shadows: const [
-          Shadow(
-            color: Colors.black45,
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
+          Shadow(color: Colors.black45, blurRadius: 8, offset: Offset(0, 2)),
         ],
       ),
     );
@@ -209,11 +200,7 @@ class _PrayerHeroHeaderState extends State<PrayerHeroHeader> {
         height: 1.1,
         letterSpacing: 1,
         shadows: const [
-          Shadow(
-            color: Colors.black38,
-            blurRadius: 10,
-            offset: Offset(0, 3),
-          ),
+          Shadow(color: Colors.black38, blurRadius: 10, offset: Offset(0, 3)),
         ],
         // Stops the width jittering as digits change.
         fontFeatures: const [FontFeature.tabularFigures()],
@@ -231,11 +218,7 @@ class _PrayerHeroHeaderState extends State<PrayerHeroHeader> {
           fontWeight: FontWeight.w700,
           color: color.withValues(alpha: 0.85),
           shadows: const [
-            Shadow(
-              color: Colors.black38,
-              blurRadius: 8,
-              offset: Offset(0, 2),
-            ),
+            Shadow(color: Colors.black38, blurRadius: 8, offset: Offset(0, 2)),
           ],
         ),
       ),
@@ -291,7 +274,11 @@ class _PrayerHeroHeaderState extends State<PrayerHeroHeader> {
                   ),
                 )
               else
-                Icon(Icons.my_location_rounded, size: 13.sp, color: Colors.white),
+                Icon(
+                  Icons.my_location_rounded,
+                  size: 13.sp,
+                  color: Colors.white,
+                ),
             ],
           ),
         ),

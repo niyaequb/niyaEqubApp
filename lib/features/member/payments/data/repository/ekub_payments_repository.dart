@@ -88,8 +88,10 @@ class EkubPaymentsRepository {
               status = EkubPaymentStatus.future;
               break;
             case PaymentScheduleStatus.pending:
-              status = EkubPaymentStatus
-                  .unpaid; // Treat as unpaid in this simplified view for now, or add pending to EkubPaymentStatus
+              // Its own state now. Folded into unpaid, a contribution the
+              // member had just paid read as "Past Due" until the bank
+              // confirmed it (Dashen QA, item 6).
+              status = EkubPaymentStatus.pending;
               break;
           }
 
@@ -99,7 +101,12 @@ class EkubPaymentsRepository {
             amount: item.amount.toInt(),
             status: status,
             time: item.dueDate,
-            method: item.paidPayment?.paymentDate != null
+            method: status == EkubPaymentStatus.pending
+                // A translation KEY, turned into words by the screen, which
+                // has GetX in scope. Pulling get.dart into a repository that
+                // also imports dio invites a Response/FormData name clash.
+                ? 'awaiting_bank_confirmation'
+                : item.paidPayment?.paymentDate != null
                 ? 'Paid on ${DateFormat('MMM dd, yyyy').format(DateTime.parse(item.paidPayment!.paymentDate!))}'
                 : (status == EkubPaymentStatus.future
                       ? 'Due later'
@@ -125,7 +132,9 @@ class EkubPaymentsRepository {
   }
 }
 
-enum EkubPaymentStatus { paid, unpaid, future }
+/// `pending` is a contribution the member has paid and the bank has not yet
+/// confirmed. Not money yet, and not overdue either.
+enum EkubPaymentStatus { paid, pending, unpaid, future }
 
 class EkubPaymentItem {
   final String packageLabel;

@@ -40,6 +40,7 @@ class MainActivity : AudioServiceActivity() {
     private companion object {
         const val CHANNEL = "com.niyaet.ekub/mosque_mode"
         const val CRASH_CHANNEL = "com.niyaet.ekub/crash"
+        const val APPS_CHANNEL = "com.niyaet.ekub/external_apps"
     }
 
     /**
@@ -135,6 +136,45 @@ class MainActivity : AudioServiceActivity() {
                     else -> result.notImplemented()
                 }
             }
+
+        // Pay: opens the Dashen SuperApp, where Equb contributions are paid.
+        // See lib/core/service/payments/dashen_superapp.dart. Android 11 and
+        // later only let this see the SuperApp because of the <queries> entry
+        // in AndroidManifest.xml; without it, it always looks uninstalled.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, APPS_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                val pkg = call.argument<String>("package").orEmpty()
+                when (call.method) {
+                    "isInstalled" ->
+                        result.success(pkg.isNotEmpty() && launchIntentFor(pkg) != null)
+
+                    "open" -> result.success(pkg.isNotEmpty() && openApp(pkg))
+
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
+    /** [pkg]'s launcher intent, or null when it is not installed. */
+    private fun launchIntentFor(pkg: String): Intent? =
+        try {
+            packageManager.getLaunchIntentForPackage(pkg)
+        } catch (e: Exception) {
+            null
+        }
+
+    /**
+     * Starts [pkg] in its own task, the way the home screen would.
+     * False when it is not installed or refuses to start.
+     */
+    private fun openApp(pkg: String): Boolean {
+        val intent = launchIntentFor(pkg) ?: return false
+        return try {
+            startActivity(intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+            true
+        } catch (e: Exception) {
+            false
+        }
     }
 
     override fun onResume() {

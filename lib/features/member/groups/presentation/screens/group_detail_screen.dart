@@ -10,7 +10,9 @@ import 'package:niya_equb/core/service/snack_bar.dart';
 import 'package:niya_equb/core/util/refresh_signal.dart';
 import 'package:niya_equb/features/member/groups/data/repository/group_equb_repository.dart';
 import 'package:niya_equb/features/member/groups/presentation/screens/invite_members_screen.dart';
+import 'package:niya_equb/features/member/groups/presentation/screens/responsibility_people_screen.dart';
 import 'package:niya_equb/features/member/groups/presentation/widgets/group_ledger_widgets.dart';
+import 'package:niya_equb/features/member/groups/presentation/widgets/responsibility_widgets.dart';
 import 'package:niya_equb/features/member/groups/state/group_detail_bloc.dart';
 import 'package:niya_equb/features/member/groups/state/group_detail_event.dart';
 import 'package:niya_equb/features/member/groups/state/group_detail_state.dart';
@@ -49,7 +51,7 @@ class _GroupDetailView extends StatefulWidget {
 
 class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 3, vsync: this);
-  int _memberFilter = 0; // 0 all · 1 unpaid · 2 paid
+  int _memberFilter = 0; // 0 all · 1 unpaid · 2 paid · 3 my responsibility
 
   /// Every tab reloads the same three endpoints, and the indicator now waits
   /// for them instead of completing the moment the event is added.
@@ -274,6 +276,14 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
 
           _factsCard(context, group, totals),
 
+          // Open to any member the group lets bring people in, not just the
+          // creator: whoever adds a person is the one paying for them, so the
+          // creator is not the only sensible sponsor.
+          if (group.isOwner || group.allowMemberInvites) ...[
+            SizedBox(height: 14.h),
+            _responsibilityCard(context, group),
+          ],
+
           if (group.isOwner) ...[
             SizedBox(height: 18.h),
             RoundedButton(
@@ -381,6 +391,107 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
     );
   }
 
+  /// Entry point to "My Responsibility People" from the overview.
+  ///
+  /// Shows the count as a number rather than only a label, because that number
+  /// is money: each one is a contribution this member owes every round, and it
+  /// should not take a tap to find out how many there are.
+  Widget _responsibilityCard(BuildContext context, EqubCircle group) {
+    final appColors = colors(context);
+    final mine = group.myResponsibilitySeatsCount;
+    final total = group.responsibilitySeatsCount;
+
+    return InkWell(
+      onTap: () => _openResponsibilityPeople(context, group),
+      borderRadius: BorderRadius.circular(16.r),
+      child: Container(
+        padding: EdgeInsets.all(14.r),
+        decoration: BoxDecoration(
+          color: kResponsibilityTint.withValues(alpha: 0.07),
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: kResponsibilityTint.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: EdgeInsets.all(9.r),
+              decoration: BoxDecoration(
+                color: kResponsibilityTint.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(11.r),
+              ),
+              child: Icon(Icons.volunteer_activism_outlined,
+                  size: 17.r, color: kResponsibilityTint),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CustomText(
+                    title: 'my_responsibility_people'.tr,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w700,
+                    textColor: appColors.titleTextColor,
+                  ),
+                  SizedBox(height: 3.h),
+                  CustomText(
+                    title: mine > 0
+                        ? 'responsibility_you_carry'.trParams({'count': '$mine'})
+                        : 'responsibility_card_empty'.tr,
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w400,
+                    textColor: appColors.bodyTextSmallColor,
+                    maxLines: 2,
+                  ),
+                  // Only the creator is sent the whole circle's places, so
+                  // this line only ever has something to say for them.
+                  if (group.isOwner && total > mine) ...[
+                    SizedBox(height: 2.h),
+                    CustomText(
+                      title: 'responsibility_in_circle'.trParams({'count': '$total'}),
+                      fontSize: 10.sp,
+                      fontWeight: FontWeight.w400,
+                      textColor: appColors.hintTextColor,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            if (mine > 0)
+              Padding(
+                padding: EdgeInsets.only(right: 6.w),
+                child: CustomText(
+                  title: '$mine',
+                  fontSize: 17.sp,
+                  fontWeight: FontWeight.w800,
+                  textColor: kResponsibilityTint,
+                ),
+              ),
+            Icon(Icons.chevron_right_rounded, size: 20.r, color: kResponsibilityTint),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _openResponsibilityPeople(BuildContext context, EqubCircle group) async {
+    final bloc = context.read<GroupDetailBloc>();
+
+    final changed = await Get.to(
+      () => ResponsibilityPeopleScreen(
+        groupId: group.id,
+        contributionAmount: group.contributionAmount,
+        frequencyDays: group.contributionFrequencyDays,
+      ),
+    );
+
+    // Adding or removing a place changes the head-count, the pot and the
+    // ledger, so the whole screen is re-read rather than patched locally.
+    if (changed == true) {
+      bloc.add(GroupDetailLoadEvent(groupId: widget.groupId, isSilent: true));
+    }
+  }
+
   Widget _notice(BuildContext context,
       {required IconData icon, required Color color, required String text}) {
     return Container(
@@ -416,9 +527,16 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
   Widget _membersTab(BuildContext context, GroupDetailReady data) {
     final appColors = colors(context);
     final all = data.ledger.members;
+
+    // Places held for someone with no Niya account sit in this same list — they
+    // pay in and can win like anyone else — but they are worth being able to
+    // isolate, because they are the rows the caller may owe money on.
+    final seats = all.where((m) => m.isResponsibilitySeat).toList(growable: false);
+
     final list = switch (_memberFilter) {
       1 => data.ledger.behind,
       2 => data.ledger.paidUp,
+      3 => seats,
       _ => all,
     };
 
@@ -426,14 +544,30 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
       children: [
         Padding(
           padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 8.h),
-          child: Row(
-            children: [
-              _filterChip(context, 0, 'all'.tr, all.length),
-              SizedBox(width: 8.w),
-              _filterChip(context, 1, 'unpaid'.tr, data.ledger.behind.length),
-              SizedBox(width: 8.w),
-              _filterChip(context, 2, 'paid_up'.tr, data.ledger.paidUp.length),
-            ],
+          // Scrolls rather than wraps: four chips do not fit across a narrow
+          // phone, and a wrapped second row pushes the list itself down.
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            physics: const BouncingScrollPhysics(),
+            child: Row(
+              children: [
+                _filterChip(context, 0, 'all'.tr, all.length),
+                SizedBox(width: 8.w),
+                _filterChip(context, 1, 'unpaid'.tr, data.ledger.behind.length),
+                SizedBox(width: 8.w),
+                _filterChip(context, 2, 'paid_up'.tr, data.ledger.paidUp.length),
+                if (seats.isNotEmpty) ...[
+                  SizedBox(width: 8.w),
+                  _filterChip(
+                    context,
+                    3,
+                    'responsibility_filter'.tr,
+                    seats.length,
+                    tint: kResponsibilityTint,
+                  ),
+                ],
+              ],
+            ),
           ),
         ),
         Expanded(
@@ -459,8 +593,15 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
                     itemCount: list.length,
                     itemBuilder: (context, i) {
                       final m = list[i];
+
                       // Anyone who has not contributed yet can still be taken
                       // out; the backend refuses once money has moved.
+                      //
+                      // Places held for someone else are removable from here
+                      // too, by the creator. A sponsor who does not own the
+                      // group manages their own people from the responsibility
+                      // screen instead, which knows who they are without this
+                      // list having to carry the caller's member id.
                       final canRemove =
                           data.group.isOwner && !m.isOwner && m.roundsPaid == 0;
 
@@ -491,9 +632,15 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
     );
   }
 
-  Widget _filterChip(BuildContext context, int index, String label, int count) {
+  Widget _filterChip(
+    BuildContext context,
+    int index,
+    String label,
+    int count, {
+    Color? tint,
+  }) {
     final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    final primary = tint ?? appColors.primaryColor ?? AppStaticColor.primaryAmber;
     final selected = _memberFilter == index;
 
     return InkWell(
@@ -560,7 +707,12 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
       builder: (ctx) => AlertDialog(
         title: CustomText(title: '${'remove'.tr} ${member.name}?', fontSize: 15.sp),
         content: CustomText(
-          title: 'remove_member_body'.tr,
+          // A place held for someone else is not "a member leaving" — nobody is
+          // being told anything and no invitation is being withdrawn, so the
+          // member wording would be wrong.
+          title: member.isResponsibilitySeat
+              ? 'remove_responsibility_person_body'.tr
+              : 'remove_member_body'.tr,
           fontSize: 12.sp,
           fontWeight: FontWeight.w400,
         ),

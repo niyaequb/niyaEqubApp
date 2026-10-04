@@ -8,6 +8,7 @@ import 'package:niya_equb/core/service/dio_error_handler.dart';
 import 'package:niya_equb/core/service/exceptions.dart';
 import 'package:niya_equb/core/service/shared_preference_service.dart';
 import 'package:niya_equb/core/util/logger.dart';
+import 'package:niya_equb/core/util/phone_input_formatter.dart';
 import 'package:niya_equb/features/auth/models/user.dart';
 
 typedef ResultFuture<T> = Future<Either<Failure, T>>;
@@ -57,6 +58,22 @@ class AuthRepository {
     return dio.get(AuthEndpoint.me());
   }
 
+  /// Turns an unexpected client-side error into something a member can read.
+  ///
+  /// The bare `e.toString()` these catch blocks used to return is Dart
+  /// internals. "type 'Null' is not a subtype of type 'String'" is a message
+  /// members were genuinely shown — it names no action, means nothing outside
+  /// an IDE, and makes a working app look broken. The detail still goes to the
+  /// log, which is where it was always useful and never harmful.
+  static Failure _unexpected(Object error, String where) {
+    logger('Unexpected auth error in $where: $error');
+
+    return ServerFailure(
+      'Something went wrong on this device. Please try again.',
+      null,
+    );
+  }
+
   /// Requests an OTP code for a given phone number
   ResultFuture<String> requestOtp(String phoneNumber) async {
     try {
@@ -101,14 +118,35 @@ class AuthRepository {
     try {
       final result = await dio.post(
         AuthEndpoint.resetPassword(),
-        data: {'phone': phone, 'password': newPassword},
+        data: {
+          'phone': toInternationalPhone(phone),
+          'password': newPassword,
+        },
       );
 
       if (result.data == null) {
         throw ServerException("Unknown Error", result.statusCode);
       }
 
-      await PreferencesService.writeAccessToken(result.data['token']);
+      final message =
+          (result.data is Map
+              ? result.data['message']?.toString()
+              : null) ??
+          'Password reset successfully.';
+
+      final token = _extractToken(result.data);
+
+      if (token == null) {
+        // Deliberately still a success. The password HAS been changed by this
+        // point — the server commits it before signing a session and answers
+        // with a null token when signing fails. Reporting a failure would send
+        // the member back to try their OLD password, which no longer works,
+        // and they would lock themselves out by drawing an entirely reasonable
+        // conclusion. Sending them to the sign-in screen is the right outcome.
+        return Right(message);
+      }
+
+      await PreferencesService.writeAccessToken(token);
 
       final userJson =
           result.data['agent_profile'] ??
@@ -118,11 +156,15 @@ class AuthRepository {
         await PreferencesService.saveUser(UserModel.fromJson(userJson));
       }
 
-      return Right(result.data['message']);
+      // Was `Right(result.data['message'])`, which put a raw dynamic into a
+      // ResultFuture<String>. A response without a message field made that a
+      // TypeError at the await, reported as a failed reset even though the
+      // password had already changed.
+      return Right(message);
     } on DioException catch (e) {
       return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
     } catch (e) {
-      return Left(ServerFailure(e.toString(), null));
+      return Left(_unexpected(e, 'resetPassword'));
     }
   }
 
@@ -257,7 +299,7 @@ class AuthRepository {
       logger(e.response?.data);
       return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
     } catch (e) {
-      return Left(ServerFailure(e.toString(), null));
+      return Left(_unexpected(e, 'signup'));
     }
   }
 
@@ -266,17 +308,47 @@ class AuthRepository {
     try {
       final result = await dio.post(
         AuthEndpoint.login(),
-        data: {'phone': phone, 'password': password},
+        // Normalised here rather than trusted from the caller. The login screen
+        // passes raw controller text — nine national digits, because the +251
+        // shown in the field is decoration and never part of the value — while
+        // every other call in this class sends +251XXXXXXXXX. The two only
+        // agreed because the backend re-normalises whatever it is given, so
+        // they converged by luck rather than by design, and the luck would have
+        // run out the first time that request class changed.
+        //
+        // toInternationalPhone() is idempotent, so a caller already passing the
+        // international form is unaffected.
+        data: {'phone': toInternationalPhone(phone), 'password': password},
       );
 
       if (result.data == null) {
         throw ServerException("Unknown Error", result.statusCode);
       }
 
+      final token = _extractToken(result.data);
+
+      if (token == null) {
+        // A 200 carrying no token is not a successful sign-in and must not be
+        // recorded as one. This used to read result.data['token'] straight into
+        // writeAccessToken(String), which threw a raw TypeError that members
+        // saw as "type 'Null' is not a subtype of type 'String'".
+        //
+        // The server really does answer this way: registration returns a null
+        // token when the account was created but a session could not be signed.
+        // Checked BEFORE the cache is cleared, so a failed attempt does not
+        // quietly sign out whoever was already using the phone.
+        return Left(
+          ServerFailure(
+            'The server did not return a session. Please try again in a moment.',
+            result.statusCode,
+          ),
+        );
+      }
+
       // Whoever was signed in before may not be who is signing in now.
       await AppCache.clear();
 
-      await PreferencesService.writeAccessToken(result.data['token']);
+      await PreferencesService.writeAccessToken(token);
 
       final userJson =
           result.data['agent'] ??
@@ -291,7 +363,7 @@ class AuthRepository {
     } on DioException catch (e) {
       return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
     } catch (e) {
-      return Left(ServerFailure(e.toString(), null));
+      return Left(_unexpected(e, 'login'));
     }
   }
 
@@ -454,6 +526,78 @@ class AuthRepository {
       return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
     } catch (e) {
       return Left(ServerFailure(e.toString(), null));
+    }
+  }
+
+  /// Signs the member in from the bank's host app, with no password.
+  ///
+  /// WHY THIS EXISTS
+  ///
+  /// The Dashen SuperApp reloads the mini app when it hands back after a
+  /// payment, and a member whose session did not survive that reload was sent
+  /// to the login screen in the middle of paying (Dashen QA, item 9). The
+  /// SuperApp already knows who the member is; this asks it, and exchanges
+  /// its answer for a Niya session the same way a password sign-in would.
+  ///
+  /// [identifier] is the opaque customer identifier the host app hands out.
+  /// It proves nothing on its own: the server exchanges it WITH THE BANK, over
+  /// its own authenticated call, and only a bank-confirmed phone number that
+  /// matches an existing Niya account yields a session. A forged identifier
+  /// is refused by the bank, not by us.
+  ///
+  /// Right(true) when signed in. Right(false) when the bank recognised the
+  /// customer but there is no Niya account for them yet — not an error; they
+  /// go on to the ordinary login and registration screens. Left for anything
+  /// that went wrong, which the caller treats exactly like Right(false).
+  ResultFuture<bool> signInWithHostApp({
+    required String provider,
+    required String identifier,
+    String? appCode,
+    String? stage,
+  }) async {
+    try {
+      final result = await dio.post(
+        MemberEndpoints.paymentIdentify(provider),
+        data: {
+          'customeridentifier': identifier,
+          if (appCode != null && appCode.isNotEmpty) 'appcode': appCode,
+          if (stage != null && stage.isNotEmpty) 'stage': stage,
+        },
+      );
+
+      final body = result.data;
+      if (body is! Map || body['registered'] != true) {
+        return const Right(false);
+      }
+
+      final token = _extractToken(body);
+      if (token == null) return const Right(false);
+
+      // The same order as login(): clear whoever was here before, then the
+      // token, then the user.
+      await AppCache.clear();
+      await PreferencesService.writeAccessToken(token);
+
+      final userJson = body['user'];
+      if (userJson is Map<String, dynamic>) {
+        try {
+          await PreferencesService.saveUser(UserModel.fromJson(userJson));
+        } catch (_) {
+          // The bare user row may not carry everything UserModel wants.
+          // /auth/me below fills it in properly either way.
+        }
+      }
+
+      // The canonical profile shape, as every other sign-in leaves behind.
+      // A failure here does not undo the session: the token is valid, and
+      // the profile screen fetches this again on its own.
+      await me();
+
+      return const Right(true);
+    } on DioException catch (e) {
+      return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
+    } catch (e) {
+      return Left(_unexpected(e, 'signInWithHostApp'));
     }
   }
 }

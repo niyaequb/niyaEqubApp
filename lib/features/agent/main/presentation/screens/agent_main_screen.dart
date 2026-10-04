@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/core/init/injections.dart';
+import 'package:niya_equb/core/util/app_update_gate.dart';
 import 'package:niya_equb/features/agent/dashboard/presentation/screens/agent_dashboard_screen.dart';
 import 'package:niya_equb/features/agent/dashboard/state/agent_dashboard_bloc.dart';
 import 'package:niya_equb/features/agent/dashboard/state/agent_dashboard_event.dart';
@@ -25,7 +26,10 @@ class AgentMainScreen extends StatefulWidget {
   State<AgentMainScreen> createState() => _AgentMainScreenState();
 }
 
-class _AgentMainScreenState extends State<AgentMainScreen> {
+/// Agents get the same update prompt as members. They are the people least
+/// able to work around a broken build — collecting on someone else's behalf —
+/// so leaving them on an old version was never deliberate, only forgotten.
+class _AgentMainScreenState extends State<AgentMainScreen> with AppUpdateGate {
   int _index = 0;
   late final PageController _controller;
   final ValueNotifier<bool> _openProfileEditSheet = ValueNotifier(false);
@@ -34,10 +38,12 @@ class _AgentMainScreenState extends State<AgentMainScreen> {
   void initState() {
     super.initState();
     _controller = PageController(initialPage: _index);
+    startAppUpdateWatch();
   }
 
   @override
   void dispose() {
+    stopAppUpdateWatch();
     _openProfileEditSheet.dispose();
     _controller.dispose();
     super.dispose();

@@ -14,6 +14,7 @@ import 'package:niya_equb/features/member/home/models/home_promotions.dart';
 
 import 'package:niya_equb/features/member/packages/data/repository/ekub_packages_repository.dart';
 import 'package:niya_equb/features/member/packages/presentation/screens/equb_detail_screen.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 import 'package:niya_equb/shared/widgets/custom_text.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -155,12 +156,9 @@ class EkubHomeScreen extends StatelessWidget {
                           child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              Icon(
-                                Icons.savings_outlined,
-                                size: 56.sp,
-                                color: appColors.bodyTextSmallColor?.withValues(
-                                  alpha: 0.5,
-                                ),
+                              Opacity(
+                                opacity: 0.5,
+                                child: NiyaLogo(size: 56.sp),
                               ),
                               SizedBox(height: 16.h),
                               CustomText(
@@ -554,20 +552,28 @@ class _JoinedGroupCard extends StatelessWidget {
       ),
       child: Row(
         children: [
+          // The Niya mark, on white in both themes: its black shield would
+          // be lost on a dark tile.
           Container(
-            height: 48.r,
-            width: 48.r,
+            height: 52.r,
+            width: 52.r,
+            padding: EdgeInsets.all(7.r),
             decoration: BoxDecoration(
-              color: appColors.primaryColor!.withValues(
-                alpha: isDark ? 0.2 : 0.14,
-              ),
+              color: Colors.white,
               borderRadius: BorderRadius.circular(14.r),
+              border: Border.all(
+                color: NiyaPalette.gold.withValues(alpha: 0.6),
+                width: 1.2,
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: isDark ? 0.3 : 0.06),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
-            child: Icon(
-              Icons.savings_rounded,
-              color: appColors.primaryColor,
-              size: 24.sp,
-            ),
+            child: NiyaLogo(size: 38.r),
           ),
           SizedBox(width: 14.w),
           Expanded(

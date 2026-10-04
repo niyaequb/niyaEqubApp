@@ -1,5 +1,6 @@
 import 'package:niya_equb/core/init/dio_network.dart';
 import 'package:niya_equb/core/init/injections.dart';
+import 'package:niya_equb/core/service/app_update_service.dart';
 import 'package:niya_equb/core/service/notification_service.dart';
 import 'package:niya_equb/features/auth/repository/auth_repository.dart';
 import 'package:niya_equb/features/member/draw/data/repository/ekub_draw_repository.dart';
@@ -96,4 +97,10 @@ Future<void> initEkubInjections() async {
 
   // Services
   sl.registerLazySingleton<NotificationService>(() => NotificationService());
+
+  // Version check. A singleton so the PackageInfo lookup happens once per
+  // launch rather than on every screen that asks.
+  sl.registerLazySingleton<AppUpdateService>(
+    () => AppUpdateService(dio: DioNetwork.appAPI),
+  );
 }

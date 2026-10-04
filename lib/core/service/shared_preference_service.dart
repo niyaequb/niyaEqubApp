@@ -74,6 +74,9 @@ class PreferencesService {
     await _prefs?.remove(_refreshTokenKey);
     await _prefs?.remove(_userKey);
     await _prefs?.remove('fcm_token');
+    // A half-finished payment belongs to whoever started it. Left behind, the
+    // next person to sign in on this device would be dropped into that Equb.
+    await _prefs?.remove(_paymentReturnKey);
   }
 
   /// An empty string counts as signed out, the same way the network layer
@@ -120,5 +123,80 @@ class PreferencesService {
   static Future<void> clearActiveDraw(int groupId) async {
     await initialize();
     await _prefs?.remove('active_draw_$groupId');
+  }
+
+  // ---------------------------------------------------------------------------
+  // Coming back from the bank app
+  // ---------------------------------------------------------------------------
+
+  static const String _paymentReturnKey = 'payment_return';
+
+  /// How long a breadcrumb stays good. The bank's order expires after 120
+  /// minutes, but a member who reopens the app hours later is not "coming
+  /// back from paying" and should land on the home screen as usual.
+  static const Duration _paymentReturnTtl = Duration(minutes: 30);
+
+  /// Remembers which Equb the member was paying from, and for which order.
+  ///
+  /// The Dashen SuperApp reloads the mini app when it hands back after a
+  /// payment. A reload wipes everything in memory — the screen stack, the
+  /// bloc that was going to confirm the payment — and without this the member
+  /// lands on the home screen with no sign that anything is happening.
+  /// SplashScreen reads it back and reopens the Equb, still confirming.
+  static Future<void> savePaymentReturn({
+    required int groupId,
+    required String reference,
+  }) async {
+    await initialize();
+    await _prefs?.setString(
+      _paymentReturnKey,
+      jsonEncode({
+        'group_id': groupId,
+        'reference': reference,
+        // Whose payment this is. Checked on the way back, so a different
+        // member signing in on the same device is never dropped into it.
+        'user_id': getUser()?.id,
+        'at': DateTime.now().toUtc().toIso8601String(),
+      }),
+    );
+  }
+
+  static Future<void> clearPaymentReturn() async {
+    await initialize();
+    await _prefs?.remove(_paymentReturnKey);
+  }
+
+  /// The breadcrumb, if there is a recent one — and removes it either way.
+  ///
+  /// Consumed on read so it can only ever resume once. A breadcrumb that
+  /// survived would reopen the same Equb on every launch for half an hour.
+  static Future<({int groupId, String reference})?> takePaymentReturn() async {
+    await initialize();
+    final raw = _prefs?.getString(_paymentReturnKey);
+    await _prefs?.remove(_paymentReturnKey);
+    if (raw == null) return null;
+
+    try {
+      final data = jsonDecode(raw);
+      if (data is! Map) return null;
+
+      final groupId = data['group_id'];
+      final reference = data['reference']?.toString() ?? '';
+      final at = DateTime.tryParse(data['at']?.toString() ?? '');
+      final owner = data['user_id'];
+
+      if (groupId is! int || reference.isEmpty || at == null) return null;
+
+      // Someone else's half-finished payment is not ours to resume.
+      final me = getUser()?.id;
+      if (owner is int && me != null && owner != me) return null;
+      if (DateTime.now().toUtc().difference(at) > _paymentReturnTtl) {
+        return null;
+      }
+
+      return (groupId: groupId, reference: reference);
+    } catch (_) {
+      return null;
+    }
   }
 }

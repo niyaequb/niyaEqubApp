@@ -33,6 +33,13 @@ String etbCompact(double v) {
   return etb(v);
 }
 
+/// The colour used everywhere for "My Responsibility People" — the places a
+/// member holds in a circle for someone with no Niya account.
+///
+/// Lives here rather than in responsibility_widgets.dart because the members
+/// ledger below needs it too, and that file must not import upwards.
+const Color kResponsibilityTint = Color(0xFF7C3AED);
+
 /// Colour + label for a member's contribution standing.
 class PaymentStatusStyle {
   final String label;
@@ -401,6 +408,32 @@ class MemberLedgerTile extends StatelessWidget {
                       fontWeight: FontWeight.w400,
                       textColor: appColors.bodyTextSmallColor,
                     ),
+                    // A place held for someone with no Niya account. It counts
+                    // and pays like any other member, so it belongs in this
+                    // list — but who owes the money has to be visible, or the
+                    // circle reads it as a member who is quietly in arrears.
+                    if (member.isResponsibilitySeat) ...[
+                      SizedBox(height: 5.h),
+                      Row(
+                        children: [
+                          Icon(Icons.volunteer_activism_outlined,
+                              size: 11.r, color: kResponsibilityTint),
+                          SizedBox(width: 4.w),
+                          Flexible(
+                            child: CustomText(
+                              title: (member.sponsorName ?? '').isEmpty
+                                  ? 'responsibility_person'.tr
+                                  : '${'paid_by'.tr} ${member.sponsorName}',
+                              fontSize: 10.sp,
+                              fontWeight: FontWeight.w600,
+                              textColor: kResponsibilityTint,
+                              maxLines: 1,
+                              textOverflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),

@@ -12,6 +12,9 @@ import 'package:niya_equb/core/config/app_color.dart';
 import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/core/constants/hive_constants.dart';
 import 'package:niya_equb/core/service/navigation_service.dart';
+import 'package:niya_equb/core/service/app_update_service.dart';
+import 'package:niya_equb/core/init/injections.dart';
+import 'package:niya_equb/shared/widgets/app_update_sheet.dart';
 import 'package:niya_equb/core/service/snack_bar.dart';
 import 'package:niya_equb/features/auth/models/user.dart';
 import 'package:niya_equb/core/language/controllers/language_controller.dart';
@@ -351,6 +354,13 @@ class _EkubProfileScreenState extends State<EkubProfileScreen> {
                         subtitle: 'language_subtitle'.tr,
                         onTap: () => _showLanguageSheet(context),
                       ),
+                      SizedBox(height: 10.h),
+                      // Every serious app puts the version here, and lets you
+                      // check on demand. It is also the only way to find out
+                      // why the launch-time prompt stayed quiet — whether the
+                      // app is genuinely current, the server has nothing
+                      // published, or the check could not run at all.
+                      const _AppVersionTile(),
                       // Settings from API
                       BlocBuilder<SettingsBloc, SettingsState>(
                         builder: (context, settingsState) {
@@ -558,7 +568,16 @@ Future<void> _showEditProfileSheetImpl(
                 ? nameCtrl.text[0].toUpperCase()
                 : 'M');
 
-            return BlocListener<EkubProfileBloc, EkubProfileState>(
+            // Lifts the whole sheet above the keyboard. A modal sheet does
+            // not do this on its own, so the fields below the first few sat
+            // behind the keyboard and could not be seen while typing.
+            return AnimatedPadding(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.viewInsetsOf(sheetCtx).bottom,
+              ),
+              child: BlocListener<EkubProfileBloc, EkubProfileState>(
               listenWhen: (prev, curr) =>
                   curr is EkubProfileUpdateLoading ||
                   curr is EkubProfileUpdateFailure ||
@@ -898,6 +917,7 @@ Future<void> _showEditProfileSheetImpl(
                     ),
                   ),
                 ),
+              ),
               ),
             );
           },
@@ -1806,6 +1826,195 @@ class _SettingsTile extends StatelessWidget {
               ),
             ),
             Icon(Icons.chevron_right, color: appColors.bodyTextSmallColor),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Shows the running version, and checks the store on demand.
+///
+/// The launch prompt is silent by design — it should never interrupt someone
+/// to say "nothing to report". That silence is also indistinguishable from a
+/// broken check, which is exactly the problem this tile solves: tapping it
+/// gives a definite answer every time, including why there is no update.
+class _AppVersionTile extends StatefulWidget {
+  const _AppVersionTile();
+
+  @override
+  State<_AppVersionTile> createState() => _AppVersionTileState();
+}
+
+class _AppVersionTileState extends State<_AppVersionTile> {
+  String? _version;
+  bool _checking = false;
+
+  /// Kept from the last check so a long-press can show what actually happened
+  /// on the wire.
+  String? _lastDiagnostics;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final version = await sl<AppUpdateService>().displayVersion();
+      if (!mounted) return;
+      setState(() => _version = version);
+    } catch (_) {
+      // Leave it blank rather than showing a wrong number.
+    }
+  }
+
+  Future<void> _check() async {
+    if (_checking) return;
+    setState(() => _checking = true);
+
+    final service = sl<AppUpdateService>();
+
+    // The user asked, so an earlier "Not now" must not suppress the answer,
+    // and the six-hour store cache must not answer on the store's behalf.
+    await service.resetPromptState();
+
+    final result = await service.check(forceRefresh: true);
+    if (!mounted) return;
+
+    setState(() {
+      _checking = false;
+      _lastDiagnostics = result.diagnostics;
+    });
+
+    switch (result.outcome) {
+      case UpdateCheckOutcome.updateAvailable:
+        await showAppUpdateSheet(context, result.info!);
+
+      case UpdateCheckOutcome.upToDate:
+        showSuccessSnackBar(context, 'update_up_to_date'.tr);
+
+      case UpdateCheckOutcome.notConfigured:
+        // Information, not a failure: nothing could name a published version.
+        // Painting this red made a perfectly normal state — a debug build,
+        // which Play will never report updates for — look like the app was
+        // broken. The detail says which source came up empty and what to do
+        // about it, and the action opens the full trace.
+        showInfoSnackBar(
+          context,
+          result.detail ?? 'update_check_failed'.tr,
+          actionLabel: 'update_details_action'.tr,
+          onAction: _showDiagnostics,
+        );
+
+      case UpdateCheckOutcome.failed:
+        // The real reason, always — not only in debug builds.
+        //
+        // This was gated behind kDebugMode, which meant the one person trying
+        // to work out why nothing appeared, on the release build where it
+        // matters, got "please try again later" and nothing else. Every detail
+        // string is written to be safe and useful for a member to read, so
+        // there is nothing here worth hiding from them.
+        showErrorSnackBar(
+          context,
+          result.detail ?? 'update_check_failed'.tr,
+        );
+    }
+  }
+
+  /// Long-press: the exact URL, status and response body.
+  void _showDiagnostics() {
+    final text = _lastDiagnostics ?? 'update_no_diagnostics'.tr;
+
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text('update_diagnostics'.tr, style: TextStyle(fontSize: 15.sp)),
+        content: SingleChildScrollView(
+          // Selectable so it can be copied into a bug report instead of
+          // retyped from a photograph of the screen.
+          child: SelectableText(
+            text,
+            style: TextStyle(fontSize: 11.sp, height: 1.5),
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('close'.tr),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = colors(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return InkWell(
+      onTap: _checking ? null : _check,
+      onLongPress: _showDiagnostics,
+      borderRadius: BorderRadius.circular(16.r),
+      child: Container(
+        padding: EdgeInsets.all(14.r),
+        decoration: BoxDecoration(
+          color: appColors.accentColor,
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: appColors.borderColor!),
+        ),
+        child: Row(
+          children: [
+            Container(
+              height: 42.r,
+              width: 42.r,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(14.r),
+                color: appColors.primaryColor!.withValues(
+                  alpha: isDark ? 0.18 : 0.12,
+                ),
+              ),
+              child: Icon(
+                Icons.system_update_alt_rounded,
+                color: appColors.primaryColor,
+              ),
+            ),
+            SizedBox(width: 12.w),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  CustomText(
+                    title: 'app_version'.tr,
+                    fontSize: 13.sp,
+                    fontWeight: FontWeight.w800,
+                    textColor: appColors.titleTextColor,
+                  ),
+                  SizedBox(height: 4.h),
+                  CustomText(
+                    title: _version == null
+                        ? 'check_for_updates'.tr
+                        : '${_version!}  ·  ${'check_for_updates'.tr}',
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w500,
+                    textColor: appColors.bodyTextSmallColor,
+                  ),
+                ],
+              ),
+            ),
+            if (_checking)
+              SizedBox(
+                height: 16.r,
+                width: 16.r,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  color: appColors.primaryColor,
+                ),
+              )
+            else
+              Icon(Icons.chevron_right, color: appColors.bodyTextSmallColor),
           ],
         ),
       ),

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:niya_equb/core/init/failures.dart';
 import 'package:niya_equb/core/util/logger.dart';
 import 'package:niya_equb/features/member/packages/data/repository/ekub_packages_repository.dart';
 import 'package:niya_equb/features/member/packages/state/equb_detail_event.dart';
@@ -19,6 +20,7 @@ class EqubDetailBloc extends Bloc<EqubDetailEvent, EqubDetailState> {
   EqubDetailBloc({required this.repository}) : super(EqubDetailInitial()) {
     on<EqubDetailLoadEvent>(_onLoad);
     on<EqubDetailInitiatePaymentEvent>(_onInitiatePayment);
+    on<EqubDetailInitiateBatchPaymentEvent>(_onInitiateBatchPayment);
     on<EqubDetailDrawStartedEvent>(_onDrawStarted);
     on<EqubDetailDrawCompletedEvent>(_onDrawCompleted);
     on<EqubDetailDrawTimeoutEvent>(_onDrawTimeout);
@@ -179,14 +181,107 @@ class EqubDetailBloc extends Bloc<EqubDetailEvent, EqubDetailState> {
     Emitter<EqubDetailState> emit,
   ) async {
     emit(EqubDetailPaymentLoading());
+
+    final provider = await _resolveProvider(event.provider, event, emit);
+    if (provider == null) return;
+
     final result = await repository.initiateEqubPayment(
       membershipId: event.membershipId,
       amount: event.amount,
       paymentDate: event.paymentDate,
+      provider: provider,
     );
+
     result.fold(
       (failure) => emit(EqubDetailPaymentFailure(failure)),
-      (url) => emit(EqubDetailPaymentSuccess(url)),
+      (session) => emit(EqubDetailPaymentSuccess(session)),
+    );
+  }
+
+  /// Settles every place the member pays for in one charge.
+  ///
+  /// No amount is sent: the server prices each place from its own membership,
+  /// so the total shown on the confirmation screen and the total actually
+  /// charged come from the same source and cannot drift apart.
+  Future<void> _onInitiateBatchPayment(
+    EqubDetailInitiateBatchPaymentEvent event,
+    Emitter<EqubDetailState> emit,
+  ) async {
+    emit(EqubDetailPaymentLoading());
+
+    final provider = await _resolveProvider(event.provider, event, emit);
+    if (provider == null) return;
+
+    final result = await repository.initiateBatchEqubPayment(
+      membershipIds: event.membershipIds,
+      paymentDate: event.paymentDate,
+      provider: provider,
+    );
+
+    result.fold(
+      (failure) => emit(EqubDetailPaymentFailure(failure)),
+      (session) => emit(EqubDetailPaymentSuccess(session)),
+    );
+  }
+
+  /// Decide which bank this payment goes through.
+  ///
+  /// Returns null when the caller must stop — either because something has
+  /// already been emitted explaining why, or because the member is being asked
+  /// to choose and will re-dispatch the same event with their answer.
+  ///
+  /// The client never holds a list of banks of its own. Asking the server on
+  /// each attempt is what lets a bank be added or withdrawn without an app
+  /// release.
+  Future<String?> _resolveProvider(
+    String? chosen,
+    EqubDetailEvent event,
+    Emitter<EqubDetailState> emit,
+  ) async {
+    if (chosen != null && chosen.isNotEmpty) return chosen;
+
+    final result = await repository.fetchPaymentProviders();
+
+    return result.fold(
+      (failure) {
+        emit(EqubDetailPaymentFailure(failure));
+        return null;
+      },
+      (banks) {
+        // A provider whose slug is empty cannot be paid through. The slug IS
+        // the `payment_method` the server validates against, so offering one
+        // guarantees a rejection — and it arrives AFTER the member has picked
+        // a date and committed to paying, as a flat "the selected payment
+        // method is invalid" they can do nothing about.
+        //
+        // PaymentClientConfig.fromJson degrades a missing slug to '' rather
+        // than failing, which is the right call for parsing and the wrong one
+        // for offering. Filtered here, where the list stops being data and
+        // becomes a choice.
+        banks = banks
+            .where((bank) => bank.slug.trim().isNotEmpty)
+            .toList(growable: false);
+
+        if (banks.isEmpty) {
+          // No bank is configured, so there is nothing to charge through. Said
+          // plainly rather than left as an empty picker the member cannot act
+          // on.
+          // Not const: ServerFailure has no const constructor.
+          emit(
+            EqubDetailPaymentFailure(
+              ServerFailure('no_payment_banks_available', null),
+            ),
+          );
+          return null;
+        }
+
+        if (banks.length == 1) return banks.first.slug;
+
+        // More than one: the member chooses. The event travels with the state
+        // so the second attempt is byte-for-byte the one they confirmed.
+        emit(EqubDetailPaymentChooseBank(banks, event));
+        return null;
+      },
     );
   }
 

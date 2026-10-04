@@ -13,10 +13,7 @@ workflows:
           xcode-project use-profiles
       - name: Get Flutter packages
         script: |
-          flutter packages pub get
-      - name: Install CocoaPods dependencies
-        script: |
-          cd ios && pod install
+          flutter pub get
       - name: Build iOS IPA
         script: |
           flutter build ipa --release --no-codesign

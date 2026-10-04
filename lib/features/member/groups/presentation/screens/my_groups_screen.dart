@@ -136,10 +136,10 @@ class _MyGroupsView extends StatelessWidget {
               context,
               GroupEmptyState(
                 icon: Icons.groups_2_rounded,
-                title: 'Start an Equb with your circle',
-                body: 'Pick a package, invite your family or friends, and run your own draws.',
+                title: 'Start an Equb with your circle'.tr,
+                body: 'Pick a package, invite your family or friends, and run your own draws.'.tr,
                 action: RoundedButton(
-                  label: 'Create a group',
+                  label: 'Create a group'.tr,
                   width: 200.w,
                   backgroundColor: appColors.primaryColor,
                   onPressed: () async {

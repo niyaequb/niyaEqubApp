@@ -18,7 +18,11 @@ class EkubPaymentsSuccess extends EkubPaymentsState {
   List<EkubPaymentItem> get filtered {
     return items.where((e) {
       if (filterIndex == 1) return e.status == EkubPaymentStatus.paid;
-      if (filterIndex == 2) return e.status == EkubPaymentStatus.unpaid;
+      // Not yet settled: overdue, and paid-but-unconfirmed alike.
+      if (filterIndex == 2) {
+        return e.status == EkubPaymentStatus.unpaid ||
+            e.status == EkubPaymentStatus.pending;
+      }
       return true;
     }).toList();
   }

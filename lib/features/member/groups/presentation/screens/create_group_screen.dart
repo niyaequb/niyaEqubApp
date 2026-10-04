@@ -10,6 +10,7 @@ import 'package:niya_equb/core/service/snack_bar.dart';
 import 'package:niya_equb/features/member/groups/data/repository/group_equb_repository.dart';
 import 'package:niya_equb/features/member/groups/presentation/screens/group_detail_screen.dart';
 import 'package:niya_equb/features/member/groups/presentation/widgets/group_ledger_widgets.dart';
+import 'package:niya_equb/features/member/groups/presentation/widgets/responsibility_widgets.dart';
 import 'package:niya_equb/shared/widgets/custom_text.dart';
 import 'package:niya_equb/shared/widgets/custom_text_field.dart';
 import 'package:niya_equb/shared/widgets/rounded_button.dart';
@@ -70,13 +71,20 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   bool _loading = true;
   bool _submitting = false;
 
-  final _picked = <MemberLookupResult>[];
+  /// Numbers to invite. There is no picked-member list any more: the app has
+  /// no way to tell a registered number from an unregistered one, and does not
+  /// need one — the server resolves it when the invitation is sent.
   final _pendingPhones = <String>[];
-  List<MemberLookupResult> _results = [];
-  bool _searching = false;
-  bool _searched = false;
-  String? _searchError;
-  Timer? _debounce;
+
+  /// People the creator is taking responsibility for: a child, a parent,
+  /// anyone without a Niya account. Held locally until the group exists,
+  /// then sent with it in one request — there is nobody to invite, so there is
+  /// nothing to wait for.
+  final _responsibility = <ResponsibilityPersonDraft>[];
+
+  /// Live format check on what is typed. No network call is made at any point
+  /// while typing — see the note on _memberPhoneField.
+  bool _phoneReady = false;
 
   @override
   void initState() {
@@ -97,7 +105,6 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _name.dispose();
     _description.dispose();
     _search.dispose();
@@ -134,80 +141,56 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   }
 
   // --- Members -------------------------------------------------------
+  //
+  // Adding someone is by full phone number, and by nothing else.
+  //
+  // This used to be a type-ahead over the member directory: typing "bila"
+  // listed every Bilal on the platform with their phone number underneath. Any
+  // signed-in account could read the directory out of it a fragment at a time
+  // — who is registered, what their number is, and their full name. The search
+  // was removed rather than trimmed, because any lookup that answers a partial
+  // string is the same hole at a slower rate.
+  //
+  // Nothing is sent while typing and nothing is revealed about the person. A
+  // complete number gets a tick, meaning "this number can be invited" — not
+  // "this person has an account", which is deliberately never disclosed.
 
-  void _onSearchChanged(String raw) {
-    _debounce?.cancel();
+  void _onPhoneChanged(String raw) {
+    final ready = isCompleteEthiopianPhone(raw);
+    if (ready == _phoneReady) return;
 
-    final term = raw.trim();
-    if (term.isEmpty) {
-      setState(() {
-        _results = [];
-        _searched = false;
-      });
+    setState(() => _phoneReady = ready);
+  }
+
+  void _addPhone() {
+    final normalised = normalizeEthiopianPhone(_search.text.trim());
+
+    if (!isCompleteEthiopianPhone(normalised)) return;
+
+    if (_pendingPhones.contains(normalised)) {
+      showErrorSnackBar(context, 'phone_already_added'.tr);
       return;
     }
-
-    // Search from the first character so results appear while typing.
-    _debounce = Timer(const Duration(milliseconds: 250), () => _runSearch(term));
-  }
-
-  bool _looksLikePhone(String term) => RegExp(r'^[0-9+]{2,}$').hasMatch(term);
-
-  Future<void> _runSearch(String term) async {
-    if (!mounted) return;
-    setState(() => _searching = true);
-
-    // Typed as 09xxxxxxxx, stored as +2519xxxxxxxx. Two characters is enough
-    // to tell: "09" already needs converting to "+2519".
-    final query = _looksLikePhone(term) ? normalizeEthiopianPhone(term) : term;
-
-    final result = await sl<GroupEqubRepository>().searchMembers(query);
-    if (!mounted) return;
-
-    result.fold(
-      (failure) => setState(() {
-        _searching = false;
-        _searched = true;
-        _results = [];
-        _searchError = failure.errorMessage;
-      }),
-      (list) => setState(() {
-        _searching = false;
-        _searched = true;
-        _searchError = null;
-        _results = list
-            .where((m) => !_picked.any((p) => p.memberId == m.memberId))
-            .toList();
-      }),
-    );
-  }
-
-  void _add(MemberLookupResult member) {
-    setState(() {
-      _picked.add(member);
-      _results.removeWhere((m) => m.memberId == member.memberId);
-      _search.clear();
-      _results = [];
-      _searched = false;
-    });
-    // Unfocus via the manager rather than FocusScope.of(context): the setState
-    // above tears down the tapped tile, and an ancestor lookup from a
-    // deactivated element is what trips the framework assertion.
-    FocusManager.instance.primaryFocus?.unfocus();
-  }
-
-  void _addRawPhone() {
-    final normalised = normalizeEthiopianPhone(_search.text.trim());
-    if (normalised.length < 9 || _pendingPhones.contains(normalised)) return;
 
     setState(() {
       _pendingPhones.add(normalised);
       _search.clear();
-      _results = [];
+      _phoneReady = false;
     });
+
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
-  int get _headCount => 1 + _picked.length + _pendingPhones.length;
+  /// Everyone who will hold a place in the circle: the creator, the numbers
+  /// being invited, and the people the creator is answerable for. The last
+  /// group counts here for the same reason it counts in the pot — a place is a
+  /// place, whoever pays for it.
+  int get _headCount => 1 + _pendingPhones.length + _responsibility.length;
+
+  /// What the creator alone will owe every round: their own contribution plus
+  /// one for each person they are responsible for.
+  double get _myRoundTotal =>
+      (_equb?.contributionPerPerson ?? 0) * (1 + _responsibility.length);
 
   // --- Build ---------------------------------------------------------
 
@@ -275,19 +258,17 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
                       _sectionLabel(context, 'Add members'.tr),
                       SizedBox(height: 4.h),
                       CustomText(
-                        title: 'Search by name or phone. They join once they accept your invitation.'.tr,
+                        title: 'add_members_phone_only_hint'.tr,
                         fontSize: 11.sp,
                         fontWeight: FontWeight.w400,
                         textColor: appColors.bodyTextSmallColor,
                       ),
                       SizedBox(height: 10.h),
-                      _memberSearchField(context),
-                      if (_results.isNotEmpty)
-                        _resultsList(context)
-                      else if (_searched && !_searching)
-                        _noResults(context),
-                      if (_picked.isNotEmpty || _pendingPhones.isNotEmpty)
-                        _pickedList(context),
+                      _memberPhoneField(context),
+                      if (_pendingPhones.isNotEmpty) _pickedList(context),
+                      SizedBox(height: 24.h),
+
+                      _responsibilitySection(context),
                       SizedBox(height: 20.h),
 
                       if ((_equb?.termsContent ?? '').trim().isNotEmpty) ...[
@@ -403,106 +384,25 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
   }
 
   Future<void> _openEqubSheet() async {
-    final appColors = colors(context);
-    final searchCtrl = TextEditingController();
-    var filtered = _equbs;
-
-    await showModalBottomSheet<void>(
+    // The sheet owns its own search controller — see _EqubPickerSheet. It is
+    // popped with the chosen Equb rather than reaching back into this State,
+    // so nothing here runs while the sheet is still animating away.
+    final picked = await showModalBottomSheet<JoinableEqub>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: appColors.scaffoldBackgroundColor,
+      backgroundColor: colors(context).scaffoldBackgroundColor,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
       ),
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setSheet) => Padding(
-          padding: EdgeInsets.only(
-            left: 16.w,
-            right: 16.w,
-            top: 16.h,
-            bottom: MediaQuery.of(sheetContext).viewInsets.bottom + 16.h,
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              CustomText(
-                title: 'Choose an Equb',
-                fontSize: 15.sp,
-                fontWeight: FontWeight.w700,
-                textColor: appColors.titleTextColor,
-              ),
-              SizedBox(height: 12.h),
-              CustomTextField(
-                controller: searchCtrl,
-                label: 'Search Equbs',
-                onChanged: (v) => setSheet(() {
-                  final t = v.trim().toLowerCase();
-                  filtered = t.isEmpty
-                      ? _equbs
-                      : _equbs
-                          .where((e) =>
-                              e.name.toLowerCase().contains(t) ||
-                              (e.packageName ?? '').toLowerCase().contains(t))
-                          .toList();
-                }),
-              ),
-              SizedBox(height: 12.h),
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: 360.h),
-                child: filtered.isEmpty
-                    ? Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24.h),
-                        child: CustomText(
-                          title: 'No Equb matches that search.',
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w400,
-                          centerText: true,
-                          textColor: appColors.bodyTextSmallColor,
-                        ),
-                      )
-                    : ListView.builder(
-                        shrinkWrap: true,
-                        itemCount: filtered.length,
-                        itemBuilder: (_, i) {
-                          final e = filtered[i];
-                          final selected = e.id == _equb?.id;
-
-                          return ListTile(
-                            contentPadding: EdgeInsets.symmetric(horizontal: 4.w),
-                            title: CustomText(
-                              title: e.name,
-                              fontSize: 13.sp,
-                              fontWeight: FontWeight.w600,
-                              textColor: appColors.titleTextColor,
-                            ),
-                            subtitle: CustomText(
-                              title: '${etb(e.contributionPerPerson)} per person · '
-                                  'every ${e.frequencyDays} day(s)'
-                                  '${e.packageName != null ? ' · ${e.packageName}' : ''}',
-                              fontSize: 11.sp,
-                              fontWeight: FontWeight.w400,
-                              textColor: appColors.bodyTextSmallColor,
-                            ),
-                            trailing: selected
-                                ? Icon(Icons.check_circle_rounded,
-                                    color: appColors.primaryColor, size: 20.r)
-                                : null,
-                            onTap: () {
-                              setState(() => _equb = e);
-                              Navigator.pop(sheetContext);
-                            },
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        ),
+      builder: (_) => _EqubPickerSheet(
+        equbs: _equbs,
+        selectedId: _equb?.id,
       ),
     );
 
-    searchCtrl.dispose();
+    if (picked == null || !mounted) return;
+
+    setState(() => _equb = picked);
   }
 
   /// Everything here is derived: per-person amount from the Equb's package,
@@ -527,12 +427,31 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
           _moneyRow(context, 'Each person, per round'.tr, etb(perPerson), bold: false),
           Divider(height: 18.h, color: primary.withValues(alpha: 0.18)),
           _moneyRow(context, 'Members in the group'.tr, '$_headCount', bold: false),
+          // Only appears once there is something to explain: it says how much
+          // of that head-count is places the creator is paying for, so the
+          // number never looks larger than the people who agreed to join.
+          if (_responsibility.isNotEmpty) ...[
+            Divider(height: 18.h, color: primary.withValues(alpha: 0.18)),
+            _moneyRow(
+              context,
+              'people_you_pay_for'.tr,
+              '${_responsibility.length}',
+              bold: false,
+            ),
+          ],
           Divider(height: 18.h, color: primary.withValues(alpha: 0.18)),
           _moneyRow(context, 'Whole group, per round'.tr, etb(roundTotal), bold: true),
           Divider(height: 18.h, color: primary.withValues(alpha: 0.18)),
           _moneyRow(context, "${'Whole group, all'.tr} $rounds ${'rounds'.tr}",
               etb(roundTotal * rounds),
               bold: false),
+          // The creator's own bill, separated out from the group's. Without
+          // this the card only ever showed what the circle owes together,
+          // which is not the figure the person tapping "create" needs.
+          if (_responsibility.isNotEmpty) ...[
+            Divider(height: 18.h, color: primary.withValues(alpha: 0.18)),
+            _moneyRow(context, 'your_part_per_round'.tr, etb(_myRoundTotal), bold: true),
+          ],
         ],
       ),
     );
@@ -562,140 +481,337 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     );
   }
 
-  Widget _memberSearchField(BuildContext context) {
-    final appColors = colors(context);
+  // --- My Responsibility People ---------------------------------------
 
-    return Row(
+  /// The second way to fill a circle: people who cannot join by themselves.
+  ///
+  /// Kept visually distinct from "Add members" above rather than folded into
+  /// the same list, because the two are different commitments. An invited
+  /// member pays their own way; a person added here is paid for by the creator,
+  /// every round, for the whole term. Merging them into one "people" list is
+  /// exactly how someone ends up owing five contributions a day without having
+  /// understood that they agreed to.
+  Widget _responsibilitySection(BuildContext context) {
+    final appColors = colors(context);
+    final limit = 10;
+    final atLimit = _responsibility.length >= limit;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: CustomTextField(
-            controller: _search,
-            label: 'Name or 09xxxxxxxx',
-            keyboardType: TextInputType.text,
-            onChanged: _onSearchChanged,
-          ),
-        ),
-        if (_searching)
-          Padding(
-            padding: EdgeInsets.only(left: 12.w),
-            child: SizedBox(
-              width: 18.r,
-              height: 18.r,
-              child: CircularProgressIndicator(strokeWidth: 2.w),
-            ),
-          )
-        else if (_search.text.trim().length >= 9)
-          Padding(
-            padding: EdgeInsets.only(left: 8.w),
-            child: TextButton(
-              onPressed: _addRawPhone,
-              child: CustomText(
-                title: 'Invite',
+        Row(
+          children: [
+            Icon(Icons.volunteer_activism_outlined,
+                size: 15.r, color: kResponsibilityTint),
+            SizedBox(width: 7.w),
+            Expanded(child: _sectionLabel(context, 'my_responsibility_people'.tr)),
+            if (_responsibility.isNotEmpty)
+              CustomText(
+                title: '${_responsibility.length}',
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w700,
-                textColor: appColors.primaryColor,
+                textColor: kResponsibilityTint,
+              ),
+          ],
+        ),
+        SizedBox(height: 4.h),
+        CustomText(
+          title: 'my_responsibility_people_subtitle'.tr,
+          fontSize: 11.sp,
+          fontWeight: FontWeight.w400,
+          textColor: appColors.bodyTextSmallColor,
+        ),
+        SizedBox(height: 10.h),
+
+        ResponsibilityExplainer(
+          contributionAmount: _equb?.contributionPerPerson ?? 0,
+          frequencyDays: _equb?.frequencyDays ?? 0,
+          count: _responsibility.length,
+          limit: limit,
+        ),
+        SizedBox(height: 10.h),
+
+        ..._responsibility.asMap().entries.map(
+              (entry) => _responsibilityRow(context, entry.key, entry.value),
+            ),
+
+        InkWell(
+          onTap: atLimit ? null : _addResponsibilityPerson,
+          borderRadius: BorderRadius.circular(14.r),
+          child: Container(
+            width: double.infinity,
+            padding: EdgeInsets.symmetric(vertical: 14.h, horizontal: 14.w),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14.r),
+              border: Border.all(
+                color: atLimit
+                    ? (appColors.borderColor ?? AppStaticColor.borderLight)
+                    : kResponsibilityTint.withValues(alpha: 0.45),
+                // Dashed is not available on Border, so a lighter solid edge
+                // carries the "this is an action, not a field" signal instead.
+                width: 1.2,
               ),
             ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  atLimit ? Icons.block_rounded : Icons.person_add_alt_rounded,
+                  size: 16.r,
+                  color: atLimit ? appColors.hintTextColor : kResponsibilityTint,
+                ),
+                SizedBox(width: 8.w),
+                CustomText(
+                  title: atLimit
+                      ? 'responsibility_limit_reached'.trParams({'limit': '$limit'})
+                      : 'add_a_person'.tr,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w600,
+                  textColor: atLimit ? appColors.hintTextColor : kResponsibilityTint,
+                ),
+              ],
+            ),
           ),
+        ),
+
+        // The running total the creator is signing up for. Shown only once
+        // there is something extra to pay, so it appears as a consequence of
+        // adding someone rather than as permanent noise.
+        if (_responsibility.isNotEmpty && (_equb?.contributionPerPerson ?? 0) > 0) ...[
+          SizedBox(height: 12.h),
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 12.h),
+            decoration: BoxDecoration(
+              color: kResponsibilityTint.withValues(alpha: 0.08),
+              borderRadius: BorderRadius.circular(12.r),
+            ),
+            child: Row(
+              children: [
+                Icon(Icons.account_balance_wallet_outlined,
+                    size: 15.r, color: kResponsibilityTint),
+                SizedBox(width: 9.w),
+                Expanded(
+                  child: CustomText(
+                    title: 'your_share_each_round'.trParams({
+                      'people': '${1 + _responsibility.length}',
+                    }),
+                    fontSize: 11.sp,
+                    fontWeight: FontWeight.w500,
+                    textColor: appColors.bodyTextColor,
+                  ),
+                ),
+                CustomText(
+                  title: etb(_myRoundTotal),
+                  fontSize: 13.sp,
+                  fontWeight: FontWeight.w800,
+                  textColor: kResponsibilityTint,
+                ),
+              ],
+            ),
+          ),
+        ],
       ],
     );
   }
 
-  /// Shown when a search came back with nothing, so the field never looks
-  /// broken. A phone number can still be invited by SMS.
-  Widget _noResults(BuildContext context) {
+  Widget _responsibilityRow(
+    BuildContext context,
+    int index,
+    ResponsibilityPersonDraft person,
+  ) {
     final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
-    final typed = _search.text.trim();
-    final looksLikePhone = RegExp(r'^[0-9+]{6,}$').hasMatch(typed);
+    final details = [
+      if ((person.relation ?? '').trim().isNotEmpty) person.relation!.trim(),
+      if ((person.phone ?? '').trim().isNotEmpty) person.phone!.trim(),
+    ].join(' · ');
 
     return Container(
-      margin: EdgeInsets.only(top: 8.h),
-      padding: EdgeInsets.all(14.r),
+      margin: EdgeInsets.only(bottom: 8.h),
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 10.h),
       decoration: BoxDecoration(
         color: appColors.accentColor,
-        borderRadius: BorderRadius.circular(14.r),
+        borderRadius: BorderRadius.circular(12.r),
         border: Border.all(
-          color: (appColors.borderColor ?? AppStaticColor.borderLight).withValues(alpha: 0.7),
+          color: (appColors.borderColor ?? AppStaticColor.borderLight)
+              .withValues(alpha: 0.5),
         ),
       ),
       child: Row(
         children: [
-          Icon(Icons.search_off_rounded, size: 17.r, color: appColors.hintTextColor),
-          SizedBox(width: 10.w),
-          Expanded(
+          Container(
+            width: 32.r,
+            height: 32.r,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: kResponsibilityTint.withValues(alpha: 0.12),
+            ),
+            alignment: Alignment.center,
             child: CustomText(
-              title: _searchError ??
-                  (looksLikePhone
-                      ? 'Not on Niya yet. Tap Invite to send them an SMS.'
-                      : 'Nobody matches that. Try a phone number instead.'),
-              fontSize: 11.5.sp,
-              fontWeight: FontWeight.w400,
-              textColor: _searchError != null
-                  ? const Color(0xFFDC2626)
-                  : appColors.bodyTextSmallColor,
+              title: person.name.trim().isEmpty
+                  ? '?'
+                  : person.name.trim()[0].toUpperCase(),
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w700,
+              textColor: kResponsibilityTint,
             ),
           ),
-          if (looksLikePhone && _searchError == null)
-            TextButton(
-              onPressed: _addRawPhone,
-              child: CustomText(
-                title: 'Invite',
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w700,
-                textColor: primary,
-              ),
+          SizedBox(width: 10.w),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CustomText(
+                  title: person.name,
+                  fontSize: 12.5.sp,
+                  fontWeight: FontWeight.w600,
+                  textColor: appColors.titleTextColor,
+                  maxLines: 1,
+                  textOverflow: TextOverflow.ellipsis,
+                ),
+                SizedBox(height: 2.h),
+                CustomText(
+                  title: details.isEmpty ? 'you_pay_for_them'.tr : details,
+                  fontSize: 10.5.sp,
+                  fontWeight: FontWeight.w400,
+                  textColor: appColors.bodyTextSmallColor,
+                  maxLines: 1,
+                  textOverflow: TextOverflow.ellipsis,
+                ),
+              ],
             ),
+          ),
+          IconButton(
+            onPressed: () => _editResponsibilityPerson(index),
+            visualDensity: VisualDensity.compact,
+            constraints: BoxConstraints(minWidth: 30.w, minHeight: 30.h),
+            padding: EdgeInsets.zero,
+            icon: Icon(Icons.edit_outlined, size: 15.r, color: appColors.hintTextColor),
+          ),
+          SizedBox(width: 4.w),
+          IconButton(
+            onPressed: () => setState(() => _responsibility.removeAt(index)),
+            visualDensity: VisualDensity.compact,
+            constraints: BoxConstraints(minWidth: 30.w, minHeight: 30.h),
+            padding: EdgeInsets.zero,
+            icon: Icon(Icons.close_rounded, size: 15.r, color: appColors.hintTextColor),
+          ),
         ],
       ),
     );
   }
 
-  Widget _resultsList(BuildContext context) {
-    final appColors = colors(context);
-    final border = appColors.borderColor ?? AppStaticColor.borderLight;
+  Future<void> _addResponsibilityPerson() async {
+    final person = await showResponsibilityPersonSheet(
+      context,
+      contributionAmount: _equb?.contributionPerPerson ?? 0,
+      frequencyDays: _equb?.frequencyDays ?? 0,
+    );
 
-    return Container(
-      margin: EdgeInsets.only(top: 8.h),
-      decoration: BoxDecoration(
-        color: appColors.accentColor,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: border.withValues(alpha: 0.7)),
-      ),
-      child: Column(
-        children: _results.take(6).map((m) {
-          return ListTile(
-            dense: true,
-            leading: CircleAvatar(
-              radius: 16.r,
-              backgroundColor:
-                  (appColors.primaryColor ?? AppStaticColor.primaryAmber)
-                      .withValues(alpha: 0.14),
-              child: CustomText(
-                title: m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w700,
-                textColor: appColors.primaryColor,
+    if (person == null || !mounted) return;
+
+    // A repeated name here is almost always a double tap, and the cost of
+    // letting it through is a second contribution every round. The server
+    // refuses it too; catching it now means the group is not created with a
+    // silent skip the creator never sees.
+    final exists = _responsibility.any(
+      (p) => p.name.trim().toLowerCase() == person.name.trim().toLowerCase(),
+    );
+
+    if (exists) {
+      showErrorSnackBar(
+        context,
+        'responsibility_duplicate'.trParams({'name': person.name.trim()}),
+      );
+      return;
+    }
+
+    setState(() => _responsibility.add(person));
+  }
+
+  Future<void> _editResponsibilityPerson(int index) async {
+    final person = await showResponsibilityPersonSheet(
+      context,
+      initial: _responsibility[index],
+      contributionAmount: _equb?.contributionPerPerson ?? 0,
+      frequencyDays: _equb?.frequencyDays ?? 0,
+    );
+
+    if (person == null || !mounted) return;
+
+    setState(() => _responsibility[index] = person);
+  }
+
+  /// Phone-only entry with a live format check.
+  ///
+  /// The tick means the number is complete and can be sent an invitation. It
+  /// deliberately does NOT mean "this person is on Niya" — the app never asks
+  /// and the server never says, because an endpoint that answers that question
+  /// turns a stolen contact list into a list of confirmed users.
+  Widget _memberPhoneField(BuildContext context) {
+    final appColors = colors(context);
+    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    const green = Color(0xFF16A34A);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: CustomTextField(
+                controller: _search,
+                label: '09xxxxxxxx',
+                keyboardType: TextInputType.phone,
+                onChanged: _onPhoneChanged,
               ),
             ),
-            title: CustomText(
-              title: m.name,
-              fontSize: 12.5.sp,
-              fontWeight: FontWeight.w600,
-              textColor: appColors.titleTextColor,
+            SizedBox(width: 10.w),
+            // The tick is the only feedback. It appears on a complete number
+            // and does nothing until tapped.
+            IconButton(
+              onPressed: _phoneReady ? _addPhone : null,
+              visualDensity: VisualDensity.compact,
+              tooltip: 'add'.tr,
+              icon: Icon(
+                _phoneReady
+                    ? Icons.check_circle_rounded
+                    : Icons.check_circle_outline_rounded,
+                size: 28.r,
+                color: _phoneReady
+                    ? green
+                    : (appColors.hintTextColor ?? Colors.grey)
+                        .withValues(alpha: 0.4),
+              ),
             ),
-            subtitle: CustomText(
-              title: m.phone ?? '',
-              fontSize: 10.5.sp,
-              fontWeight: FontWeight.w400,
-              textColor: appColors.bodyTextSmallColor,
-            ),
-            trailing: Icon(Icons.add_circle_outline_rounded,
-                size: 20.r, color: appColors.primaryColor),
-            onTap: () => _add(m),
-          );
-        }).toList(),
-      ),
+          ],
+        ),
+        if (_search.text.trim().isNotEmpty && !_phoneReady) ...[
+          SizedBox(height: 6.h),
+          CustomText(
+            title: 'phone_incomplete_hint'.tr,
+            fontSize: 10.5.sp,
+            fontWeight: FontWeight.w400,
+            textColor: appColors.hintTextColor,
+          ),
+        ],
+        if (_phoneReady) ...[
+          SizedBox(height: 6.h),
+          Row(
+            children: [
+              Icon(Icons.info_outline_rounded, size: 12.r, color: primary),
+              SizedBox(width: 6.w),
+              Expanded(
+                child: CustomText(
+                  title: 'phone_ready_hint'.tr,
+                  fontSize: 10.5.sp,
+                  fontWeight: FontWeight.w400,
+                  textColor: appColors.bodyTextSmallColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 
@@ -705,19 +821,13 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       child: Wrap(
         spacing: 8.w,
         runSpacing: 8.h,
-        children: [
-          ..._picked.map((m) => _chip(
-                context,
-                label: m.name,
-                onRemove: () => setState(() => _picked.remove(m)),
-              )),
-          ..._pendingPhones.map((p) => _chip(
-                context,
-                label: p,
-                subtle: true,
-                onRemove: () => setState(() => _pendingPhones.remove(p)),
-              )),
-        ],
+        children: _pendingPhones
+            .map((p) => _chip(
+                  context,
+                  label: p,
+                  onRemove: () => setState(() => _pendingPhones.remove(p)),
+                ))
+            .toList(),
       ),
     );
   }
@@ -769,8 +879,15 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
       'parent_equb_group_id': _equb!.id,
       'name': _name.text.trim(),
       if (_description.text.trim().isNotEmpty) 'description': _description.text.trim(),
-      'invite_member_ids': _picked.map((m) => m.memberId).toList(),
+      // Phones only. The server resolves each number to an existing member if
+      // there is one, so the app never has to know — and never has to be told.
       'invite_phones': _pendingPhones,
+      // Sent with the group rather than after it: nobody has to accept these,
+      // so there is no invitation round-trip to wait for and they are members
+      // of the circle from the moment it exists.
+      if (_responsibility.isNotEmpty)
+        'responsibility_people':
+            _responsibility.map((p) => p.toJson()).toList(),
     });
 
     if (!mounted) return;
@@ -779,9 +896,149 @@ class _CreateGroupScreenState extends State<CreateGroupScreen> {
     result.fold(
       (failure) => showErrorSnackBar(context, failure.errorMessage),
       (group) {
-        showSuccessSnackBar(context, 'Group created. Invitations are on their way.');
+        showSuccessSnackBar(
+          context,
+          _responsibility.isEmpty
+              ? 'Group created. Invitations are on their way.'.tr
+              : 'group_created_with_responsibility'.trParams({
+                  'count': '${_responsibility.length}',
+                }),
+        );
         Get.off(() => GroupDetailScreen(groupId: group.id));
       },
+    );
+  }
+}
+
+/// The "Choose an Equb" bottom sheet.
+///
+/// A widget rather than a StatefulBuilder next to the showModalBottomSheet
+/// call, so its search controller is created and disposed by the framework
+/// alongside the sheet itself. Disposing it on the line after the await looks
+/// equivalent but is not: the sheet goes on rebuilding throughout its closing
+/// animation, and the search field would still be reading a controller that
+/// had already been thrown away.
+///
+/// It also pops with the chosen Equb instead of calling setState on the screen
+/// behind it, which keeps the two lifecycles from overlapping at all.
+class _EqubPickerSheet extends StatefulWidget {
+  final List<JoinableEqub> equbs;
+
+  /// Ticks the row that is already selected. Just an id, so the sheet never
+  /// holds on to a stale copy of the Equb itself.
+  final int? selectedId;
+
+  const _EqubPickerSheet({required this.equbs, this.selectedId});
+
+  @override
+  State<_EqubPickerSheet> createState() => _EqubPickerSheetState();
+}
+
+class _EqubPickerSheetState extends State<_EqubPickerSheet> {
+  final _search = TextEditingController();
+
+  late List<JoinableEqub> _filtered = widget.equbs;
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  void _onSearch(String value) {
+    final term = value.trim().toLowerCase();
+
+    setState(() {
+      _filtered = term.isEmpty
+          ? widget.equbs
+          : widget.equbs
+              .where((e) =>
+                  e.name.toLowerCase().contains(term) ||
+                  (e.packageName ?? '').toLowerCase().contains(term))
+              .toList();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = colors(context);
+
+    return Padding(
+      padding: EdgeInsets.only(
+        left: 16.w,
+        right: 16.w,
+        top: 16.h,
+        bottom: MediaQuery.viewInsetsOf(context).bottom + 16.h,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          CustomText(
+            title: 'Choose an Equb'.tr,
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w700,
+            textColor: appColors.titleTextColor,
+          ),
+          SizedBox(height: 12.h),
+          CustomTextField(
+            controller: _search,
+            label: 'Search Equbs'.tr,
+            onChanged: _onSearch,
+          ),
+          SizedBox(height: 12.h),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: 360.h),
+            child: _filtered.isEmpty
+                ? Padding(
+                    padding: EdgeInsets.symmetric(vertical: 24.h),
+                    child: CustomText(
+                      title: 'No Equb matches that search.'.tr,
+                      fontSize: 12.sp,
+                      fontWeight: FontWeight.w400,
+                      centerText: true,
+                      textColor: appColors.bodyTextSmallColor,
+                    ),
+                  )
+                : ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _filtered.length,
+                    itemBuilder: (_, i) {
+                      final e = _filtered[i];
+                      final selected = e.id == widget.selectedId;
+
+                      return ListTile(
+                        contentPadding: EdgeInsets.symmetric(horizontal: 4.w),
+                        title: CustomText(
+                          title: e.name,
+                          fontSize: 13.sp,
+                          fontWeight: FontWeight.w600,
+                          textColor: appColors.titleTextColor,
+                        ),
+                        subtitle: CustomText(
+                          title: '${etb(e.contributionPerPerson)} per person · '
+                              'every ${e.frequencyDays} day(s)'
+                              '${e.packageName != null ? ' · ${e.packageName}' : ''}',
+                          fontSize: 11.sp,
+                          fontWeight: FontWeight.w400,
+                          textColor: appColors.bodyTextSmallColor,
+                        ),
+                        trailing: selected
+                            ? Icon(Icons.check_circle_rounded,
+                                color: appColors.primaryColor, size: 20.r)
+                            : null,
+                        onTap: () {
+                          // Close the keyboard first: the sheet is about to
+                          // shrink and unwind at the same time otherwise.
+                          FocusManager.instance.primaryFocus?.unfocus();
+                          Navigator.of(context).pop(e);
+                        },
+                      );
+                    },
+                  ),
+          ),
+        ],
+      ),
     );
   }
 }

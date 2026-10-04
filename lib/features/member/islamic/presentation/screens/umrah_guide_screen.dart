@@ -3,7 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/features/member/islamic/data/static/umrah_data.dart';
-import 'package:niya_equb/features/member/islamic/presentation/screens/azkar_detail_screen.dart';
+import 'package:niya_equb/features/member/islamic/presentation/screens/umrah_dua_categories_screen.dart';
 
 /// The Umrah guide.
 ///
@@ -11,17 +11,18 @@ import 'package:niya_equb/features/member/islamic/presentation/screens/azkar_det
 ///
 /// The page used to open on the list of things forbidden in ihram, which is a
 /// strange first thing to say to someone who may not yet know what Umrah is.
-/// It now runs meaning -> reward -> rites -> restrictions:
+/// It now runs:
 ///
 ///   1. What Umrah actually is, in the language and in the sharia.
-///   2. The four acts that make one complete, at a glance.
-///   3. What is promised for it — the reason anyone saves for years to go.
-///   4. The rites, in order, which is what people return to on the day.
-///   5. The prohibitions, which only matter once you are in ihram, and the
-///      sourcing notice.
+///   2. What is promised for it — the reason anyone saves for years to go.
+///   3. What ihram forbids, placed before the rites because it binds from the
+///      moment ihram is entered.
+///   4. The four acts that make one complete, at a glance.
+///   5. The rites, in order, which is what people return to on the day.
+///   6. The azkar, and the sourcing notice.
 ///
 /// Someone opening this for the first time gets an answer; someone standing at
-/// the miqat scrolls to section four.
+/// the miqat scrolls to section five.
 class UmrahGuideScreen extends StatefulWidget {
   static const String routeName = '/islamic-umrah';
 
@@ -37,11 +38,16 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
 
   final Set<int> _open = {0};
 
+  /// Opens the categorised du'a collection.
+  ///
+  /// Used to push a single AzkarDetailScreen holding every supplication in one
+  /// flat run. That list could only ever contain du'as attached to a rite, so
+  /// the travel du'a, the du'a on first seeing the Ka'bah and the du'a for
+  /// Zamzam had nowhere to live — which is most of what "the du'as are not
+  /// complete" meant.
   void _openAzkar() {
     Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => AzkarDetailScreen(category: UmrahData.azkarCategory),
-      ),
+      MaterialPageRoute(builder: (_) => const UmrahDuaCategoriesScreen()),
     );
   }
 
@@ -58,33 +64,57 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
             padding: EdgeInsets.fromLTRB(12.w, 14.h, 12.w, 28.h),
             sliver: SliverList(
               delegate: SliverChildListDelegate([
+                // Order: what it is -> why do it -> what it forbids -> what
+                // makes it valid -> how to perform it -> the du'as.
+                //
+                // The prohibitions sit third, not last. They bind from the
+                // moment ihram is entered, which is before the first rite, so
+                // burying them under the step list means reaching them after
+                // the point where they could still be acted on.
+
+                // 1. What is Umrah?
                 _meaningCard(appColors),
                 SizedBox(height: 16.h),
 
-                _sectionTitle(appColors, 'umrah_pillars_title'.tr,
-                    'umrah_pillars_subtitle'.tr),
+                // 2. Why perform Umrah
+                _sectionTitle(
+                  appColors,
+                  'umrah_virtues_title'.tr,
+                  'umrah_virtues_subtitle'.tr,
+                ),
+                SizedBox(height: 10.h),
+                for (final v in UmrahData.virtues) _virtueCard(appColors, v),
+                SizedBox(height: 12.h),
+
+                // 3. Forbidden while in ihram
+                _prohibitionsCard(appColors),
+                SizedBox(height: 18.h),
+
+                // 4. What makes Umrah complete
+                _sectionTitle(
+                  appColors,
+                  'umrah_pillars_title'.tr,
+                  'umrah_pillars_subtitle'.tr,
+                ),
                 SizedBox(height: 10.h),
                 _pillarStrip(appColors),
                 SizedBox(height: 18.h),
 
-                _sectionTitle(appColors, 'umrah_virtues_title'.tr,
-                    'umrah_virtues_subtitle'.tr),
-                SizedBox(height: 10.h),
-                for (final v in UmrahData.virtues) _virtueCard(appColors, v),
-                SizedBox(height: 6.h),
-
-                _azkarShortcut(),
-                SizedBox(height: 18.h),
-
+                // 5. The rites, in order
                 _sectionTitle(
-                    appColors, 'umrah_steps'.tr, 'umrah_steps_subtitle'.tr),
+                  appColors,
+                  'umrah_steps'.tr,
+                  'umrah_steps_subtitle'.tr,
+                ),
                 SizedBox(height: 10.h),
                 for (var i = 0; i < UmrahData.steps.length; i++)
                   _stepCard(appColors, i),
                 SizedBox(height: 14.h),
 
-                _prohibitionsCard(appColors),
+                // 6. Umrah Azkar
+                _azkarShortcut(),
                 SizedBox(height: 14.h),
+
                 _reviewNotice(appColors),
               ]),
             ),
@@ -100,7 +130,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
 
   /// Collapsing header carrying the daytime Makkah photograph.
   ///
-  /// Always day.png, never night.png: this screen is read while planning as
+  /// Always header.jpg, never header.jpg: this screen is read while planning as
   /// often as on the night itself, and a dark header above a light page reads
   /// as a bug rather than a mood.
   Widget _hero() {
@@ -132,7 +162,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
           fit: StackFit.expand,
           children: [
             Image.asset(
-              'assets/images/ibada/day.png',
+              'assets/images/ibada/header.jpg',
               fit: BoxFit.cover,
               // A missing asset would otherwise leave the title sitting on
               // bare white, which looks broken. The accent colour is the same
@@ -349,7 +379,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
   }
 
   // ------------------------------------------------------------------
-  // 2. Pillars
+  // 4. Pillars
   // ------------------------------------------------------------------
 
   /// Horizontally scrolling rather than a grid.
@@ -437,7 +467,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
   }
 
   // ------------------------------------------------------------------
-  // 3. Virtues
+  // 2. Virtues
   // ------------------------------------------------------------------
 
   Widget _virtueCard(dynamic appColors, UmrahVirtue v) {
@@ -447,9 +477,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
       decoration: BoxDecoration(
         color: appColors.accentColor,
         borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: appColors.borderColor ?? Colors.transparent,
-        ),
+        border: Border.all(color: appColors.borderColor ?? Colors.transparent),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -614,7 +642,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
   }
 
   // ------------------------------------------------------------------
-  // 5. Prohibitions — now at the bottom
+  // 3. Forbidden while in ihram
   // ------------------------------------------------------------------
 
   Widget _prohibitionsCard(dynamic appColors) {
@@ -697,7 +725,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
   }
 
   // ------------------------------------------------------------------
-  // 4. The rites
+  // 5. The rites
   // ------------------------------------------------------------------
 
   Widget _stepCard(dynamic appColors, int index) {
@@ -825,7 +853,9 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
                       Container(
                         padding: EdgeInsets.all(10.w),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFF59E0B).withValues(alpha: 0.12),
+                          color: const Color(
+                            0xFFF59E0B,
+                          ).withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(10.r),
                         ),
                         child: Row(
@@ -924,9 +954,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
       decoration: BoxDecoration(
         color: appColors.accentColor,
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(
-          color: appColors.borderColor ?? Colors.transparent,
-        ),
+        border: Border.all(color: appColors.borderColor ?? Colors.transparent),
       ),
       child: Text(
         'umrah_review_notice'.tr,

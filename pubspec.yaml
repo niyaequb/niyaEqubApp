@@ -26,7 +26,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 #
 # Bump this on every build you hand out, without exception. A tester on an
 # unknown version is a bug report you cannot act on.
-version: 1.0.1+15
+version: 1.0.1+26
 environment:
   sdk: ^3.10.7
 
@@ -61,6 +61,46 @@ dependencies:
   table_calendar: ^3.1.2
   webview_flutter: ^4.10.0
   url_launcher: ^6.3.1
+  # Reads the running build's version and build number at runtime, which is
+  # what the update check compares against the server. Hard-coding it in Dart
+  # would drift from pubspec the first time someone bumps one and not the
+  # other, and the whole feature turns on that number being right.
+  #
+  # UPPER BOUND IS DELIBERATE AND LOAD-BEARING.
+  #
+  # package_info_plus >= 10.1.0 requires win32 ^6.0.1, while share_plus 10.1.4
+  # requires win32 ^5.5.3, and the two cannot both be satisfied. Pub's own
+  # suggestion is to jump share_plus to 13.x — but that release replaced the
+  # static Share.share() API with SharePlus.instance.share(ShareParams(...)),
+  # so it is a code migration, not a version bump, and not one to make while
+  # chasing an unrelated build error.
+  #
+  # Written as an explicit range rather than a caret so the solver takes the
+  # newest release that still sits below the win32 split. Raise it only
+  # together with share_plus, in a change of its own.
+  package_info_plus: ">=8.3.1 <10.1.0"
+
+  # Google Play's official In-App Updates API (Play Core).
+  #
+  # THIS IS THE ONLY SUPPORTED WAY FOR AN ANDROID APP TO KNOW THAT PLAY HAS A
+  # NEWER BUILD. There is no public version API for a listing, and the listing
+  # page itself no longer reliably carries the version number in its HTML —
+  # which is exactly why the first attempt at this feature came back with
+  # "no published version could be found".
+  #
+  # Two things to know about it:
+  #
+  #   * It only answers for an app INSTALLED FROM PLAY. A `flutter run` build
+  #     or a sideloaded APK gets ERROR_API_NOT_AVAILABLE, always. That is not
+  #     a bug and cannot be worked around; it is why the server check and the
+  #     listing read are still here underneath it.
+  #   * It reports the versionCode (the number after the + in `version:`
+  #     below), not the version name, so the build number has to keep going up
+  #     on every release. It already does.
+  #
+  # Android-only, no Dart dependencies of its own, so it cannot pull the
+  # win32 / share_plus conflict documented above back open.
+  in_app_update: ^5.0.0
   firebase_messaging: ^16.1.2
   # Declared explicitly because main.dart calls Firebase.initializeApp()
   # directly. It was only arriving as a transitive dependency of
@@ -71,6 +111,11 @@ dependencies:
   flutter_local_notifications: ^21.0.0
 
   # --- Ibada (Islamic) Center ---
+  # Umm al-Qura Hijri calendar. Pure Dart, no native code, and it ships the
+  # official Saudi month-start table for 1356–1500 AH rather than computing
+  # dates arithmetically. See the note at the top of hijri_date.dart for why
+  # the arithmetic version had to go.
+  hijri: ^3.0.0
   # Prayer times and Qibla need a coarse position; low accuracy is plenty.
   geolocator: ^14.0.0
   # Raw magnetometer + accelerometer for the tilt-compensated Qibla compass.

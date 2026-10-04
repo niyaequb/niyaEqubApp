@@ -7,6 +7,10 @@ import 'package:niya_equb/features/agent/main/presentation/screens/agent_main_sc
 import 'package:niya_equb/features/auth/presentation/screens/login_screen.dart';
 import 'package:niya_equb/features/member/main/presentation/screens/ekub_main_screen.dart';
 import 'package:niya_equb/core/service/navigation_service.dart';
+import 'package:niya_equb/core/init/injections.dart';
+import 'package:niya_equb/features/auth/repository/auth_repository.dart';
+import 'package:niya_equb/features/member/packages/data/repository/ekub_packages_repository.dart';
+import 'package:niya_equb/features/member/packages/presentation/screens/equb_detail_screen.dart';
 
 /// Opening screen.
 ///
@@ -55,6 +59,11 @@ class _SplashScreenState extends State<SplashScreen>
   late final Animation<double> _scale;
 
   late final Future<bool> _session;
+
+  /// True when the session came from the SuperApp rather than from storage —
+  /// which is to say the page's storage did not survive, and any note of a
+  /// payment in progress went with it. See _paymentToResume().
+  bool _signedInViaHostApp = false;
   bool _navigated = false;
 
   @override
@@ -72,7 +81,7 @@ class _SplashScreenState extends State<SplashScreen>
     _scale = Tween<double>(begin: 1.0, end: 1.03)
         .animate(CurvedAnimation(parent: _breathe, curve: Curves.easeInOut));
 
-    _session = PreferencesService.isLoggedIn().then((v) => v == true);
+    _session = _resolveSession();
     _begin();
   }
 
@@ -107,11 +116,99 @@ class _SplashScreenState extends State<SplashScreen>
 
     final user = PreferencesService.getUser();
     final isAgent = (user?.type ?? '').toLowerCase() == 'agent';
-    Navigator.pushReplacementNamed(
-      context,
+
+    // Read BEFORE leaving this screen: pushReplacementNamed disposes it, and
+    // the context below would no longer be usable.
+    final resume = isAgent ? null : await _paymentToResume();
+    if (!mounted) return;
+
+    final navigator = Navigator.of(context);
+    navigator.pushReplacementNamed(
       isAgent ? AgentMainScreen.routeName : EkubMainScreen.routeName,
     );
+
+    // Back from the bank app by way of a page reload. Reopen the Equb the
+    // member was paying from, on top of the home screen so Back still goes
+    // somewhere sensible, and carry on confirming the payment.
+    if (resume != null) {
+      navigator.pushNamed(
+        EqubDetailScreen.routeName,
+        arguments: {
+          'groupId': resume.groupId,
+          'initialTab': 0,
+          'awaitReference': resume.reference,
+          'awaitQuietly': resume.quiet,
+        },
+      );
+    }
+
     NavigationService.splashScreenFinished = true;
+  }
+
+  /// A payment the member was in the middle of, to reopen its Equb.
+  ///
+  /// The local note first: if the session came out of storage, storage
+  /// survived, and the note is the whole truth (present or absent). Only when
+  /// the session had to be re-established through the SuperApp is storage
+  /// known to be gone, and then the server is asked instead. That keeps the
+  /// extra request off every ordinary launch.
+  ///
+  /// `quiet` is true for the server's answer. That attempt may be one the
+  /// member cancelled, which the bank will never confirm, so if it is still
+  /// unresolved when the watch runs out the screen simply shows it as pending
+  /// rather than announcing "still confirming".
+  Future<({int groupId, String reference, bool quiet})?> _paymentToResume() async {
+    final local = await PreferencesService.takePaymentReturn();
+    if (local != null) {
+      return (groupId: local.groupId, reference: local.reference, quiet: false);
+    }
+    if (!_signedInViaHostApp) return null;
+
+    final remote = await sl<EkubPackagesRepository>().latestPaymentAttempt();
+    return remote == null
+        ? null
+        : (groupId: remote.groupId, reference: remote.reference, quiet: true);
+  }
+
+  /// Whether there is a session to open the app into.
+  ///
+  /// A stored token first, as always. Failing that — and only inside a bank
+  /// super-app, where the host already knows who the member is — the host is
+  /// asked, and its answer exchanged for a session by the server.
+  ///
+  /// That second step is what keeps a member signed in when the Dashen
+  /// SuperApp reloads the mini app after a payment, or when a member opens it
+  /// from the SuperApp for the first time on a device (Dashen QA, item 9).
+  /// Anywhere else it costs nothing: on a phone it returns at once, and in an
+  /// ordinary browser there is no host app to answer.
+  ///
+  /// Bounded in time. Whatever happens, the member reaches either the app or
+  /// the ordinary login screen within a few seconds; nothing here can leave
+  /// them on the splash.
+  Future<bool> _resolveSession() async {
+    if (await PreferencesService.isLoggedIn() == true) return true;
+
+    try {
+      final identity = await sl<EkubPackagesRepository>()
+          .hostAppIdentity()
+          .timeout(const Duration(seconds: 8));
+      if (identity == null) return false;
+
+      final result = await sl<AuthRepository>()
+          .signInWithHostApp(
+            provider: identity.provider,
+            identifier: identity.identifier,
+            appCode: identity.appCode,
+            stage: identity.stage,
+          )
+          .timeout(const Duration(seconds: 12));
+
+      final signedIn = result.fold((_) => false, (ok) => ok);
+      _signedInViaHostApp = signedIn;
+      return signedIn;
+    } catch (_) {
+      return false;
+    }
   }
 
   @override

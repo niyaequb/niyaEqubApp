@@ -1,117 +1,25 @@
 import 'package:flutter/material.dart';
-import 'package:get/get.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
-import 'package:intl/intl.dart';
-import 'package:niya_equb/core/config/app_theme.dart';
+import 'package:get/get.dart';
 import 'package:niya_equb/core/service/snack_bar.dart';
 import 'package:niya_equb/core/util/nav_guard.dart';
 import 'package:niya_equb/core/util/refresh_signal.dart';
+import 'package:niya_equb/features/member/groups/presentation/screens/my_groups_screen.dart';
 import 'package:niya_equb/features/member/packages/data/repository/ekub_packages_repository.dart';
+import 'package:niya_equb/features/member/packages/presentation/screens/package_detail_screen.dart';
+import 'package:niya_equb/features/member/packages/presentation/widgets/equb_visuals.dart';
 import 'package:niya_equb/features/member/packages/state/ekub_packages_bloc.dart';
 import 'package:niya_equb/features/member/packages/state/ekub_packages_event.dart';
 import 'package:niya_equb/features/member/packages/state/ekub_packages_state.dart';
-import 'package:niya_equb/features/member/packages/presentation/screens/equb_detail_screen.dart';
-import 'package:niya_equb/features/member/groups/presentation/screens/my_groups_screen.dart';
-import 'package:niya_equb/shared/widgets/custom_text.dart';
-import 'package:niya_equb/shared/widgets/rounded_button.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 
+/// The Equb tab: every package — Al Sabr, Al Nur, Iman, Hajj… — as a list in
+/// the Niya style. A package opens its own page with the plans inside it
+/// (monthly, weekly, daily), and those are joined from there.
 class EkubPackagesScreen extends StatefulWidget {
   const EkubPackagesScreen({super.key});
-
-  static void _showTermsAndJoin(
-    BuildContext context,
-    EqubGroup group,
-    EkubPackagesBloc bloc,
-  ) {
-    final appColors = colors(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (sheetContext) {
-        return Container(
-          padding: EdgeInsets.fromLTRB(20.w, 16.h, 20.w, 24.h),
-          decoration: BoxDecoration(
-            color: appColors.scaffoldBackgroundColor,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
-          ),
-          child: SafeArea(
-            top: false,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Center(
-                  child: Container(
-                    width: 44.w,
-                    height: 5.h,
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white24 : Colors.black12,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                ),
-                SizedBox(height: 20.h),
-                CustomText(
-                  title: 'terms_and_conditions'.tr,
-                  fontSize: 18.sp,
-                  fontWeight: FontWeight.w800,
-                  textColor: appColors.titleTextColor,
-                ),
-                SizedBox(height: 12.h),
-                ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: MediaQuery.of(sheetContext).size.height * 0.4,
-                  ),
-                  child: SingleChildScrollView(
-                    child: CustomText(
-                      title:
-                          group.termsAndConditions ?? 'no_terms_available'.tr,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w400,
-                      textColor: appColors.bodyTextColor,
-                    ),
-                  ),
-                ),
-                SizedBox(height: 24.h),
-                Row(
-                  children: [
-                    Expanded(
-                      child: RoundedButton(
-                        label: 'cancel'.tr,
-                        height: 48.h,
-                        backgroundColor: isDark
-                            ? Colors.white.withValues(alpha: 0.05)
-                            : Colors.grey.shade100,
-                        foregroundColor: appColors.bodyTextSmallColor,
-                        onPressed: () => Navigator.pop(sheetContext),
-                      ),
-                    ),
-                    SizedBox(width: 12.w),
-                    Expanded(
-                      child: RoundedButton(
-                        label: 'accept_and_join'.tr,
-                        height: 48.h,
-                        backgroundColor: appColors.primaryColor,
-                        foregroundColor: Colors.black.withValues(alpha: 0.85),
-                        onPressed: () {
-                          Navigator.pop(sheetContext);
-                          bloc.add(EkubPackagesJoinGroupEvent(group: group));
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
 
   @override
   State<EkubPackagesScreen> createState() => _EkubPackagesScreenState();
@@ -120,10 +28,10 @@ class EkubPackagesScreen extends StatefulWidget {
 class _EkubPackagesScreenState extends State<EkubPackagesScreen> {
   @override
   Widget build(BuildContext context) {
-    final appColors = colors(context);
-
     return BlocConsumer<EkubPackagesBloc, EkubPackagesState>(
       listener: (context, state) {
+        // A package page on top listens to the same bloc and says it there.
+        if (!context.isTopRoute) return;
         if (state is EkubPackagesFailure) {
           showErrorSnackBar(context, state.failure.errorMessage);
         }
@@ -137,90 +45,81 @@ class _EkubPackagesScreenState extends State<EkubPackagesScreen> {
           EkubPackagesFailure s => s.packages,
           _ => const <EqubPackage>[],
         };
-        final groups = switch (state) {
-          EkubPackagesSuccess s => s.filteredGroups,
-          EkubPackagesFailure s => s.filteredGroups,
-          _ => const <EqubGroup>[],
-        };
-        final selectedPackageId = switch (state) {
-          EkubPackagesSuccess s => s.selectedPackageId,
-          EkubPackagesFailure s => s.selectedPackageId,
-          _ => null,
-        };
-        final joiningGroupId = switch (state) {
-          EkubPackagesSuccess s => s.joiningGroupId,
-          EkubPackagesFailure f => f.joiningGroupId,
-          _ => null,
-        };
         final isLoading = state is EkubPackagesLoading;
-        final isLoadingGroups =
-            state is EkubPackagesSuccess && state.isLoadingGroups;
 
-        return Scaffold(
-          backgroundColor: appColors.scaffoldBackgroundColor,
-          appBar: AppBar(
-            title: Text('equb'.tr),
-            actions: [
-              // Opens the member's own group Equbs, with a Create button inside.
-              Padding(
-                padding: EdgeInsets.only(right: 12.w),
-                child: InkWell(
-                  onTap: () => context.navigateOnce(
-                    () => Get.to(() => const MyGroupsScreen()),
+        return AnnotatedRegion<SystemUiOverlayStyle>(
+          value: SystemUiOverlayStyle.light,
+          child: Scaffold(
+            backgroundColor: NiyaPalette.navyDeep,
+            body: Stack(
+              children: [
+                const Positioned.fill(child: NiyaNightBackdrop()),
+                RefreshIndicator(
+                  color: NiyaPalette.gold,
+                  backgroundColor: NiyaPalette.navy,
+                  edgeOffset: MediaQuery.paddingOf(context).top,
+                  // Waits for the reload to finish instead of snapping back
+                  // after a fixed half second.
+                  onRefresh: () => refreshWith(
+                    (signal) => context.read<EkubPackagesBloc>().add(
+                      EkubPackagesLoadEvent(isSilent: true, signal: signal),
+                    ),
                   ),
-                  borderRadius: BorderRadius.circular(20.r),
-                  child: Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
-                    decoration: BoxDecoration(
-                      color: (appColors.primaryColor ?? Colors.amber)
-                          .withValues(alpha: 0.12),
-                      borderRadius: BorderRadius.circular(20.r),
-                      border: Border.all(
-                        color: (appColors.primaryColor ?? Colors.amber)
-                            .withValues(alpha: 0.45),
+                  child: CustomScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
+                    slivers: [
+                      SliverToBoxAdapter(
+                        child: SafeArea(
+                          bottom: false,
+                          child: _Header(
+                            onGroupEqub: () => context.navigateOnce(
+                              () => Get.to(() => const MyGroupsScreen()),
+                            ),
+                          ),
+                        ),
                       ),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.group_add_rounded,
-                          size: 16.r,
-                          color: appColors.primaryColor,
+                      SliverToBoxAdapter(
+                        child: Padding(
+                          padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
+                          child: NiyaOrnamentTitle(title: 'pkg_list_title'.tr),
                         ),
-                        SizedBox(width: 6.w),
-                        CustomText(
-                          title: 'group_equb'.tr,
-                          fontSize: 12.sp,
-                          fontWeight: FontWeight.w700,
-                          textColor: appColors.primaryColor,
+                      ),
+                      if (isLoading)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.only(top: 48.h),
+                            child: const Center(
+                              child: CircularProgressIndicator(
+                                color: NiyaPalette.gold,
+                              ),
+                            ),
+                          ),
+                        )
+                      else if (packages.isEmpty)
+                        const SliverToBoxAdapter(child: _NoPackages())
+                      else
+                        SliverPadding(
+                          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 28.h),
+                          sliver: SliverList.separated(
+                            itemCount: packages.length,
+                            separatorBuilder: (_, _) => SizedBox(height: 12.h),
+                            itemBuilder: (context, index) {
+                              final p = packages[index];
+                              return _PackageTile(
+                                package: p,
+                                onTap: p.id == null
+                                    ? null
+                                    : () => PackageDetailScreen.open(context, p),
+                              );
+                            },
+                          ),
                         ),
-                      ],
-                    ),
+                    ],
                   ),
                 ),
-              ),
-            ],
-          ),
-          body: RefreshIndicator(
-            color: appColors.primaryColor,
-            // Waits for the reload to finish instead of snapping back after a
-            // fixed half second, so the spinner reflects the actual request.
-            onRefresh: () => refreshWith(
-              (signal) => context.read<EkubPackagesBloc>().add(
-                EkubPackagesLoadEvent(isSilent: true, signal: signal),
-              ),
-            ),
-            child: _GroupsTab(
-              packages: packages,
-              groups: groups,
-              selectedPackageId: selectedPackageId,
-              joiningGroupId: joiningGroupId,
-              isLoading: isLoading,
-              isLoadingGroups: isLoadingGroups,
-              activeDraws: state is EkubPackagesSuccess
-                  ? state.activeDraws
-                  : const {},
+              ],
             ),
           ),
         );
@@ -229,294 +128,191 @@ class _EkubPackagesScreenState extends State<EkubPackagesScreen> {
   }
 }
 
-class _GroupsTab extends StatelessWidget {
-  final List<EqubPackage> packages;
-  final List<EqubGroup> groups;
-  final int? selectedPackageId;
-  final String? joiningGroupId;
-  final bool isLoading;
-  final bool isLoadingGroups;
-  final Map<int, Map<String, dynamic>> activeDraws;
+/// The logo, the app's name and its line, under two gold arches.
+class _Header extends StatelessWidget {
+  final VoidCallback onGroupEqub;
 
-  const _GroupsTab({
-    required this.packages,
-    required this.groups,
-    required this.selectedPackageId,
-    required this.joiningGroupId,
-    required this.isLoading,
-    required this.isLoadingGroups,
-    required this.activeDraws,
-  });
+  const _Header({required this.onGroupEqub});
 
   @override
   Widget build(BuildContext context) {
-    final appColors = colors(context);
-
-    if (isLoading) {
-      // Scrollable so a pull still reaches the RefreshIndicator above; a bare
-      // Center would swallow the gesture.
-      return ListView(
-        physics: const AlwaysScrollableScrollPhysics(
-          parent: BouncingScrollPhysics(),
+    return Stack(
+      children: [
+        // Below the Group Equb button, framing the logo.
+        Positioned(
+          top: 44.h,
+          left: 8.w,
+          child: _CornerArch(size: 70.r, mirrored: false),
         ),
-        children: [
-          SizedBox(height: 160.h),
-          const Center(child: CircularProgressIndicator()),
-        ],
-      );
-    }
-
-    return CustomScrollView(
-      physics: const AlwaysScrollableScrollPhysics(
-        parent: BouncingScrollPhysics(),
-      ),
-      slivers: [
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 8.h),
-            child: CustomText(
-              title: 'filter_by_package'.tr,
-              fontSize: 12.sp,
-              fontWeight: FontWeight.w500,
-              textColor: appColors.bodyTextSmallColor,
-            ),
-          ),
+        Positioned(
+          top: 44.h,
+          right: 8.w,
+          child: _CornerArch(size: 70.r, mirrored: true),
         ),
-        SliverToBoxAdapter(
-          child: _FilterChips(
-            packages: packages,
-            selectedPackageId: selectedPackageId,
-            onSelect: (id) => context.read<EkubPackagesBloc>().add(
-              EkubPackagesSelectFilterEvent(packageId: id),
-            ),
-          ),
-        ),
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 20.h, 16.w, 8.h),
-            child: CustomText(
-              title: 'equb_groups'.tr,
-              fontSize: 14.sp,
-              fontWeight: FontWeight.w800,
-              textColor: appColors.titleTextColor,
-            ),
-          ),
-        ),
-        if (isLoadingGroups)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: const Center(child: CircularProgressIndicator()),
-          )
-        else if (groups.isEmpty)
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: Padding(
-              padding: EdgeInsets.all(32.w),
-              child: Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                      Icons.groups_outlined,
-                      size: 64.sp,
-                      color: appColors.bodyTextSmallColor?.withValues(
-                        alpha: 0.5,
-                      ),
-                    ),
-                    SizedBox(height: 16.h),
-                    CustomText(
-                      title: 'no_groups_found'.tr,
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w500,
-                      textColor: appColors.bodyTextSmallColor,
+        Padding(
+          padding: EdgeInsets.fromLTRB(16.w, 6.h, 14.w, 10.h),
+          child: Column(
+            children: [
+              Align(
+                alignment: Alignment.centerRight,
+                child: _GroupEqubPill(onTap: onGroupEqub),
+              ),
+              Container(
+                width: 92.r,
+                height: 92.r,
+                padding: EdgeInsets.all(13.r),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: NiyaPalette.gold, width: 2.2),
+                  boxShadow: [
+                    BoxShadow(
+                      color: NiyaPalette.gold.withValues(alpha: 0.35),
+                      blurRadius: 22,
+                      spreadRadius: 1,
                     ),
                   ],
                 ),
+                child: NiyaLogo(size: 64.r),
               ),
-            ),
-          )
-        else
-          SliverPadding(
-            padding: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 24.h),
-            sliver: SliverList.separated(
-              itemCount: groups.length,
-              separatorBuilder: (_, _) => SizedBox(height: 12.h),
-              itemBuilder: (context, index) {
-                final g = groups[index];
-                final isJoining = joiningGroupId == g.id?.toString();
-                return GestureDetector(
-                  onTap: g.isJoined
-                      ? () {
-                          final activeDraw = activeDraws[g.id];
-
-                          context.pushOnce(
-                            EqubDetailScreen.routeName,
-                            arguments: {
-                              'groupId': g.id,
-                              'drawType': activeDraw?['type'],
-                              'winnerName': activeDraw?['winnerName'],
-                              'candidates': activeDraw?['candidates'],
-                              'drawTime': activeDraw?['timestamp'],
-                              'initialTab': activeDraw != null ? 2 : 0,
-                            },
-                          )?.then((_) {
-                            if (context.mounted) {
-                              context.read<EkubPackagesBloc>().add(
-                                EkubPackagesLoadEvent(isSilent: true),
-                              );
-                            }
-                          });
-                        }
-                      : null,
-                  child: _EqubGroupCard(
-                    group: g,
-                    isJoining: isJoining,
-                    onJoin: (g.id != null && !g.isJoined)
-                        ? () => EkubPackagesScreen._showTermsAndJoin(
-                            context,
-                            g,
-                            context.read<EkubPackagesBloc>(),
-                          )
-                        : null,
+              SizedBox(height: 12.h),
+              Text(
+                'app_name'.tr,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 25.sp,
+                  fontWeight: FontWeight.w900,
+                  letterSpacing: 0.4,
+                ),
+              ),
+              SizedBox(height: 8.h),
+              Row(
+                children: [
+                  const Expanded(child: NiyaGoldRule()),
+                  Container(
+                    constraints: BoxConstraints(maxWidth: 240.w),
+                    padding: EdgeInsets.symmetric(horizontal: 10.w),
+                    child: Text(
+                      'pkg_tagline'.tr,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: NiyaPalette.goldLight,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      ),
+                    ),
                   ),
-                );
-              },
-            ),
+                  const Expanded(child: NiyaGoldRule(leadsRight: false)),
+                ],
+              ),
+            ],
           ),
+        ),
       ],
     );
   }
 }
 
-class _FilterChips extends StatelessWidget {
-  final List<EqubPackage> packages;
-  final int? selectedPackageId;
-  final void Function(int? packageId) onSelect;
-
-  const _FilterChips({
-    required this.packages,
-    required this.selectedPackageId,
-    required this.onSelect,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 8.h),
-      child: Row(
-        children: packages.asMap().entries.map((entry) {
-          final isFirst = entry.key == 0;
-          final p = entry.value;
-          return Padding(
-            padding: EdgeInsets.only(left: isFirst ? 0 : 8.w),
-            child: _Chip(
-              label: p.name ?? 'Package ${p.id}',
-              isSelected: selectedPackageId == p.id,
-              onTap: () => onSelect(p.id),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-}
-
-class _Chip extends StatelessWidget {
-  final String label;
-  final bool isSelected;
+/// Opens the member's own group Equbs, with a Create button inside.
+class _GroupEqubPill extends StatelessWidget {
   final VoidCallback onTap;
 
-  const _Chip({
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
+  const _GroupEqubPill({required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final appColors = colors(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 10.h),
-        decoration: BoxDecoration(
-          color: isSelected
-              ? appColors.primaryColor!.withValues(alpha: isDark ? 0.3 : 0.2)
-              : (isDark
-                    ? Colors.white.withValues(alpha: 0.05)
-                    : Colors.grey.shade100),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(
-            color: isSelected
-                ? appColors.primaryColor!
-                : (appColors.borderColor ?? Colors.transparent),
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
+          decoration: BoxDecoration(
+            color: NiyaPalette.gold.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: NiyaPalette.gold),
           ),
-        ),
-        child: CustomText(
-          title: label,
-          fontSize: 13.sp,
-          fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-          textColor: isSelected
-              ? appColors.primaryColor
-              : appColors.bodyTextSmallColor,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.group_add_rounded,
+                size: 16.sp,
+                color: NiyaPalette.goldLight,
+              ),
+              SizedBox(width: 6.w),
+              Text(
+                'group_equb'.tr,
+                style: TextStyle(
+                  color: NiyaPalette.goldLight,
+                  fontSize: 12.sp,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-class _EqubGroupCard extends StatelessWidget {
-  final EqubGroup group;
-  final bool isJoining;
-  final VoidCallback? onJoin;
+/// One package in the list: its badge, name, how long it runs and the cycles
+/// it offers.
+class _PackageTile extends StatelessWidget {
+  final EqubPackage package;
+  final VoidCallback? onTap;
 
-  const _EqubGroupCard({
-    required this.group,
-    required this.isJoining,
-    this.onJoin,
-  });
+  const _PackageTile({required this.package, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final appColors = colors(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? Colors.white : NiyaPalette.ink;
+    final inkSoft = isDark ? Colors.white70 : NiyaPalette.inkSoft;
+    final duration = packageDurationText(package);
+    final cycles = packageCycles(package);
+    final radius = BorderRadius.circular(16.r);
 
-    return Container(
-      padding: EdgeInsets.all(16.r),
-      decoration: BoxDecoration(
-        color: appColors.accentColor,
-        borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: appColors.borderColor!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+    return Material(
+      color: isDark ? NiyaPalette.navySoft : Colors.white,
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.5),
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: NiyaPalette.gold.withValues(alpha: 0.35)),
           ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          padding: EdgeInsets.fromLTRB(10.w, 12.h, 8.w, 12.h),
+          child: Row(
             children: [
+              NiyaStarBadge(
+                size: 60.r,
+                child: packageGlyph(package.name, size: 26.r),
+              ),
+              SizedBox(width: 10.w),
               Container(
-                height: 44.r,
-                width: 44.r,
-                decoration: BoxDecoration(
-                  color: appColors.primaryColor!.withValues(
-                    alpha: isDark ? 0.18 : 0.12,
+                width: 1.4,
+                height: 46.h,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x00C9A24A),
+                      NiyaPalette.gold,
+                      Color(0x00C9A24A),
+                    ],
                   ),
-                  borderRadius: BorderRadius.circular(14.r),
-                ),
-                child: Icon(
-                  Icons.groups_rounded,
-                  color: appColors.primaryColor,
                 ),
               ),
               SizedBox(width: 12.w),
@@ -524,93 +320,110 @@ class _EqubGroupCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    CustomText(
-                      title:
-                          group.name ??
-                          group.packageName ??
-                          'Group ${group.id}',
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.w800,
-                      textColor: appColors.titleTextColor,
+                    Text(
+                      package.name ?? 'Equb',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: ink,
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w800,
+                      ),
                     ),
-                    if (group.status != null && group.status!.isNotEmpty) ...[
-                      SizedBox(height: 4.h),
-                      CustomText(
-                        title: '${'status'.tr}: ${group.status}',
-                        fontSize: 12.sp,
-                        fontWeight: FontWeight.w500,
-                        textColor: appColors.bodyTextSmallColor,
-                        maxLines: 2,
-                        textOverflow: TextOverflow.ellipsis,
+                    if (duration != null) ...[
+                      SizedBox(height: 3.h),
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.hourglass_bottom_rounded,
+                            size: 14.sp,
+                            color: isDark
+                                ? NiyaPalette.goldLight
+                                : NiyaPalette.goldDeep,
+                          ),
+                          SizedBox(width: 4.w),
+                          Flexible(
+                            child: Text(
+                              duration,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: TextStyle(
+                                color: inkSoft,
+                                fontSize: 13.sp,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                    if (cycles.isNotEmpty) ...[
+                      SizedBox(height: 7.h),
+                      Wrap(
+                        spacing: 5.w,
+                        runSpacing: 4.h,
+                        children: [
+                          for (final c in cycles)
+                            Container(
+                              padding: EdgeInsets.symmetric(
+                                horizontal: 8.w,
+                                vertical: 2.h,
+                              ),
+                              decoration: BoxDecoration(
+                                color: NiyaPalette.maroon.withValues(
+                                  alpha: isDark ? 0.4 : 0.08,
+                                ),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                c,
+                                style: TextStyle(
+                                  color: isDark
+                                      ? NiyaPalette.goldLight
+                                      : NiyaPalette.maroon,
+                                  fontSize: 10.5.sp,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ],
                 ),
               ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: appColors.bodyTextSmallColor,
-              ),
+              Icon(Icons.chevron_right_rounded, color: inkSoft, size: 26.sp),
             ],
           ),
-          SizedBox(height: 14.h),
-          Wrap(
-            spacing: 10.w,
-            runSpacing: 10.h,
-            children: [
-              if (group.birrPerDay != null)
-                _Pill(
-                  icon: Icons.payments_rounded,
-                  label: '${group.birrPerDay} ETB',
-                ),
-              if (group.duration != null &&
-                  group.duration!.trim().isNotEmpty &&
-                  group.durationDays != " ")
-                _Pill(icon: Icons.schedule_rounded, label: group.duration!)
-              else if (group.durationDays != null)
-                _Pill(
-                  icon: Icons.schedule_rounded,
-                  label: '${group.durationDays} ${'days'.tr}',
-                ),
-              if (group.frequencyLabel != null)
-                _Pill(
-                  icon: Icons.repeat_rounded,
-                  label: group.frequencyLabel!.tr,
-                ),
-              if (group.registrationCloseAt != null)
-                _Pill(
-                  icon: Icons.event_rounded,
-                  label:
-                      '${'closes'.tr}: ${DateFormat('MMM dd, yyyy').format(DateTime.parse(group.registrationCloseAt!))}',
-                ),
-              if (group.equbStartDate != null)
-                _Pill(
-                  icon: Icons.calendar_today_rounded,
-                  label:
-                      '${'starts_on'.tr}: ${DateFormat('MMM dd, yyyy').format(DateTime.parse(group.equbStartDate!))}',
-                ),
-            ],
+        ),
+      ),
+    );
+  }
+}
+
+class _NoPackages extends StatelessWidget {
+  const _NoPackages();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.fromLTRB(32.w, 40.h, 32.w, 32.h),
+      child: Column(
+        children: [
+          Icon(
+            Icons.mosque_rounded,
+            size: 56.sp,
+            color: NiyaPalette.gold.withValues(alpha: 0.6),
           ),
           SizedBox(height: 14.h),
-          RoundedButton(
-            label: group.isJoined ? 'joined'.tr : 'join'.tr,
-            height: 42.h,
-            submitting: isJoining,
-            icon: group.isJoined
-                ? Icon(Icons.check_circle, color: Colors.green, size: 18.sp)
-                : null,
-            backgroundColor: group.isJoined
-                ? (isDark ? Colors.white10 : Colors.grey.shade200)
-                : appColors.primaryColor,
-            disabledBackgroundColor: group.isJoined
-                ? (isDark ? Colors.white10 : Colors.grey.shade200)
-                : null,
-            foregroundColor: group.isJoined
-                ? (isDark ? appColors.bodyTextSmallColor : Colors.grey.shade700)
-                : Colors.black.withValues(alpha: 0.85),
-            onPressed: (isJoining || onJoin == null || group.isJoined)
-                ? null
-                : onJoin,
+          Text(
+            'pkg_no_packages'.tr,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w600,
+            ),
           ),
         ],
       ),
@@ -618,44 +431,66 @@ class _EqubGroupCard extends StatelessWidget {
   }
 }
 
-class _Pill extends StatelessWidget {
-  final IconData icon;
-  final String label;
+/// A gold arch in a top corner of the header, after the frame of the Niya
+/// artwork.
+class _CornerArch extends StatelessWidget {
+  final double size;
+  final bool mirrored;
 
-  const _Pill({required this.icon, required this.label});
+  const _CornerArch({required this.size, required this.mirrored});
 
   @override
   Widget build(BuildContext context) {
-    final appColors = colors(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-
-    return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 8.h),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(999),
-        color: isDark
-            ? Colors.white.withValues(alpha: 0.04)
-            : Colors.grey.shade50,
-        border: Border.all(color: appColors.borderColor!),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 16.sp, color: appColors.bodyTextSmallColor),
-          SizedBox(width: 6.w),
-          Flexible(
-            child: CustomText(
-              title: label,
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w600,
-              textColor: appColors.bodyTextSmallColor,
-              maxLines: 1,
-              softWrap: false,
-              textOverflow: TextOverflow.ellipsis,
-            ),
-          ),
-        ],
+    return IgnorePointer(
+      child: SizedBox.square(
+        dimension: size,
+        child: CustomPaint(painter: _CornerArchPainter(mirrored: mirrored)),
       ),
     );
   }
+}
+
+class _CornerArchPainter extends CustomPainter {
+  final bool mirrored;
+
+  const _CornerArchPainter({required this.mirrored});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (mirrored) {
+      canvas.translate(size.width, 0);
+      canvas.scale(-1, 1);
+    }
+
+    final w = size.width;
+    final h = size.height;
+    final line = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..color = NiyaPalette.gold.withValues(alpha: 0.75);
+    final thin = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.8
+      ..color = NiyaPalette.gold.withValues(alpha: 0.5);
+
+    // Two concentric quarter arches springing from the corner.
+    final outer = Path()
+      ..moveTo(0, h)
+      ..quadraticBezierTo(0, 0, w, 0);
+    final inner = Path()
+      ..moveTo(0, h * 0.72)
+      ..quadraticBezierTo(w * 0.04, w * 0.04, w * 0.72, 0);
+    canvas.drawPath(outer, line);
+    canvas.drawPath(inner, thin);
+
+    // A star where the arches are deepest.
+    canvas.drawPath(
+      eightPointStar(w * 0.07).shift(Offset(w * 0.24, h * 0.24)),
+      Paint()..color = NiyaPalette.gold.withValues(alpha: 0.85),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_CornerArchPainter oldDelegate) =>
+      oldDelegate.mirrored != mirrored;
 }

@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -18,6 +19,8 @@ import 'package:niya_equb/core/util/app_constants.dart';
 import 'package:niya_equb/features/auth/repository/auth_repository.dart';
 import 'package:niya_equb/features/agent/main/presentation/screens/agent_main_screen.dart';
 import 'package:niya_equb/features/member/main/presentation/screens/ekub_main_screen.dart';
+import 'package:niya_equb/features/member/packages/presentation/screens/equb_detail_screen.dart';
+import 'package:niya_equb/features/member/packages/data/repository/ekub_packages_repository.dart';
 import 'package:niya_equb/shared/widgets/custom_password_field.dart';
 import 'package:niya_equb/shared/widgets/custom_phone_field.dart';
 import 'package:niya_equb/shared/widgets/custom_text.dart';
@@ -38,6 +41,95 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthBloc _authBloc = AuthBloc(authRepository: sl<AuthRepository>());
 
   bool _autoValidate = false;
+
+  /// Whether a field on the form has focus — i.e. the on-screen keyboard is,
+  /// or is about to be, up.
+  ///
+  /// WHY THE WEB BUILD NEEDS THIS AND THE PHONE DOES NOT
+  ///
+  /// On a phone the OS tells Flutter the keyboard's height, the Scaffold
+  /// shrinks, and the focused field scrolls into view by itself. Inside the
+  /// Dashen SuperApp's WebView the keyboard is drawn OVER the page and Flutter
+  /// is never told it is there, so nothing moves: the password field, in the
+  /// lower half of the screen, sat under the keyboard (Dashen QA, item 1).
+  ///
+  /// Resizing the page to the visible area instead is not an option here:
+  /// flutter_screenutil would rescale every height-based dimension in the app
+  /// the moment the keyboard opened. So the form makes room itself — extra
+  /// space below it while a field is focused — and scrolls the focused field
+  /// into the top part of the screen, clear of any keyboard.
+  bool _fieldFocused = false;
+
+  /// Into the app after signing in.
+  ///
+  /// And, when the member only landed on this screen because the bank app's
+  /// reload lost their session in the middle of paying, straight back into
+  /// the Equb they were paying from, still confirming the payment — the same
+  /// thing SplashScreen does when the session survived (Dashen QA, item 9).
+  ///
+  /// The navigator is captured before the await, so nothing here touches this
+  /// screen's context after it may have gone.
+  Future<void> _enterApp(NavigatorState navigator) async {
+    final user = PreferencesService.getUser();
+    final isAgent = (user?.type ?? '').toLowerCase() == 'agent';
+
+    // Only the local note is read before leaving: it is on the device and
+    // instant. Anything slower here would leave the member on a sign-in
+    // screen that looks stuck, with its button live again.
+    final local = isAgent ? null : await PreferencesService.takePaymentReturn();
+
+    navigator.pushNamedAndRemoveUntil(
+      isAgent ? AgentMainScreen.routeName : EkubMainScreen.routeName,
+      (route) => false,
+    );
+
+    if (isAgent) return;
+
+    void reopen(int groupId, String reference, {required bool quiet}) {
+      if (!navigator.mounted) return;
+      navigator.pushNamed(
+        EqubDetailScreen.routeName,
+        arguments: {
+          'groupId': groupId,
+          'initialTab': 0,
+          'awaitReference': reference,
+          'awaitQuietly': quiet,
+        },
+      );
+    }
+
+    if (local != null) {
+      reopen(local.groupId, local.reference, quiet: false);
+      return;
+    }
+
+    // If the reload that brought the member here also wiped the note, the
+    // server still knows. Asked AFTER the home screen is up, so the member is
+    // never kept waiting for it; the Equb opens on top when the answer lands.
+    final remote = await sl<EkubPackagesRepository>().latestPaymentAttempt();
+    if (remote != null) {
+      reopen(remote.groupId, remote.reference, quiet: true);
+    }
+  }
+
+  void _onFormFocusChange(bool hasFocus) {
+    if (!kIsWeb || hasFocus == _fieldFocused) return;
+    setState(() => _fieldFocused = hasFocus);
+    if (!hasFocus) return;
+
+    // After the extra space exists, not before: there is nothing to scroll
+    // until the padding below has been laid out.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final focused = FocusManager.instance.primaryFocus?.context;
+      if (focused == null || !focused.mounted) return;
+      Scrollable.ensureVisible(
+        focused,
+        alignment: 0.2,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+      );
+    });
+  }
   bool _snackShown = false;
 
   @override
@@ -120,8 +212,25 @@ class _LoginScreenState extends State<LoginScreen> {
           SafeArea(
             child: Center(
               child: SingleChildScrollView(
-                padding: EdgeInsets.symmetric(horizontal: 24.w, vertical: 10.h),
-                child: Form(
+                padding: EdgeInsets.fromLTRB(
+                  24.w,
+                  10.h,
+                  24.w,
+                  // Room for a keyboard Flutter cannot see. See
+                  // _fieldFocused. Plain pixels from MediaQuery, not .h,
+                  // so it tracks the real screen rather than the design size.
+                  _fieldFocused
+                      ? MediaQuery.of(context).size.height * 0.45
+                      : 10.h,
+                ),
+                keyboardDismissBehavior:
+                    ScrollViewKeyboardDismissBehavior.onDrag,
+                child: Focus(
+                  // Observes focus for the whole form without ever taking it.
+                  canRequestFocus: false,
+                  skipTraversal: true,
+                  onFocusChange: _onFormFocusChange,
+                  child: Form(
                   key: _formKey,
                   autovalidateMode: _autoValidate
                       ? AutovalidateMode.onUserInteraction
@@ -249,15 +358,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                           if (state is AuthLoginSuccess) {
                             if (!context.isTopRoute) return;
-                            final user = PreferencesService.getUser();
-                            final isAgent =
-                                (user?.type ?? '').toLowerCase() == 'agent';
-                            Navigator.of(context).pushNamedAndRemoveUntil(
-                              isAgent
-                                  ? AgentMainScreen.routeName
-                                  : EkubMainScreen.routeName,
-                              (route) => false,
-                            );
+                            _enterApp(Navigator.of(context));
                           }
                         },
                         builder: (context, state) {
@@ -322,6 +423,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     ],
                   ),
                 ),
+                ),  // Focus
               ),
             ),
           ),

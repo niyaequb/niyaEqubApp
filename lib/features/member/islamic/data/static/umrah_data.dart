@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:niya_equb/features/member/islamic/data/models/azkar_model.dart';
+import 'package:niya_equb/features/member/islamic/data/static/umrah_duas.dart';
 
 /// One rite of Umrah, in the order it is performed.
 class UmrahStep {
@@ -167,7 +168,15 @@ class UmrahData {
         ),
       ];
 
-  /// Supplications gathered out of the steps, for the azkar-style reader.
+  /// Every supplication in the guide, grouped by when it is said.
+  ///
+  /// Lives in umrah_duas.dart rather than being flattened out of [steps]: a
+  /// pilgrim looking for the travel du'a or the du'a for drinking Zamzam
+  /// should not have to remember which rite it was filed under, and several
+  /// belong to no rite at all.
+  static List<AzkarCategory> get duaCategories => UmrahDuas.categories;
+
+  /// Kept for the old single-list entry point.
   static AzkarCategory get azkarCategory => AzkarCategory(
         id: 'umrah',
         titleEn: 'umrah_azkar_title'.tr,
@@ -325,20 +334,47 @@ class UmrahData {
           'sai_action_4'.tr,
         ],
         duas: [
+          // The verse in full. It appeared here as only its opening clause —
+          // the fragment the Prophet ﷺ recited on approaching Safa — but a
+          // quarter of an ayah ending without the rest reads as a truncation
+          // bug, and a reader following along cannot tell where the verse
+          // actually ends.
           Dhikr(
-            arabic: 'إِنَّ الصَّفَا وَالْمَرْوَةَ مِن شَعَائِرِ اللَّهِ',
-            transliteration: 'Innas-Safa wal-Marwata min sha\'a\'irillah',
-            translation: 'sai_dua_1_translation'.tr,
+            arabic: 'إِنَّ ٱلصَّفَا وَٱلْمَرْوَةَ مِن شَعَآئِرِ ٱللَّهِ ۖ فَمَنْ '
+                'حَجَّ ٱلْبَيْتَ أَوِ ٱعْتَمَرَ فَلَا جُنَاحَ عَلَيْهِ أَن '
+                'يَطَّوَّفَ بِهِمَا ۚ وَمَن تَطَوَّعَ خَيْرًا فَإِنَّ ٱللَّهَ '
+                'شَاكِرٌ عَلِيمٌ',
+            transliteration: "Innas-Safa wal-Marwata min sha'a'irillah, faman "
+                "hajjal-bayta awi'tamara fala junaha 'alayhi an yattawwafa "
+                "bihima, wa man tatawwa'a khayran fa innallaha shakirun 'alim",
+            translation: 'sai_verse_full'.tr,
             reference: 'sai_dua_1_reference'.tr,
           ),
           Dhikr(
+            arabic: 'أَبْدَأُ بِمَا بَدَأَ اللَّهُ بِهِ',
+            transliteration: "Abda'u bima bada'allahu bih",
+            translation: 'dua_abdau'.tr,
+            reference: 'ref_muslim'.tr,
+            virtue: 'dua_abdau_virtue'.tr,
+          ),
+          Dhikr(
             arabic: 'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ '
-                'الْمُلْكَ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ',
+                'الْمُلْكُ وَلَهُ الْحَمْدُ وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ. '
+                'لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ، أَنْجَزَ وَعْدَهُ، '
+                'وَنَصَرَ عَبْدَهُ، وَهَزَمَ الْأَحْزَابَ وَحْدَهُ',
             transliteration: 'La ilaha illallahu wahdahu la sharika lah, lahul-'
-                'mulku wa lahul-hamdu wa huwa \'ala kulli shay\'in qadir',
+                "mulku wa lahul-hamdu wa huwa 'ala kulli shay'in qadir. La ilaha "
+                "illallahu wahdah, anjaza wa'dah, wa nasara 'abdah, wa hazamal-"
+                'ahzaba wahdah',
             translation: 'sai_dua_2_translation'.tr,
             repeat: 3,
             reference: 'sai_dua_2_reference'.tr,
+          ),
+          Dhikr(
+            arabic: 'رَبِّ اغْفِرْ وَارْحَمْ، إِنَّكَ أَنْتَ الْأَعَزُّ الْأَكْرَمُ',
+            transliteration: "Rabbighfir warham, innaka antal-a'azzul-akram",
+            translation: 'dua_between_sai'.tr,
+            reference: 'ref_ibn_umar_athar'.tr,
           ),
         ],
         caution: 'sai_caution'.tr,

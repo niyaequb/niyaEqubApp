@@ -30,6 +30,71 @@ class PaymentScheduleItem {
 }
 
 class PaymentCalculator {
+  /// The calendar day a server date stands for, as `yyyy-MM-dd`.
+  ///
+  /// A date sent bare ("2026-10-01") or with the server's own offset
+  /// ("2026-10-01T00:00:00+03:00") is read off the string as written: that is
+  /// the day the server itself compares, whatever timezone the phone is in.
+  /// Only a UTC instant ("...Z") has no calendar day of its own, so it is
+  /// read in the phone's timezone.
+  static String? dayKey(String? raw) {
+    if (raw == null || raw.length < 10) return null;
+
+    if (raw.endsWith('Z') || raw.endsWith('z')) {
+      final local = DateTime.tryParse(raw)?.toLocal();
+      if (local == null) return null;
+      final m = local.month.toString().padLeft(2, '0');
+      final d = local.day.toString().padLeft(2, '0');
+      return '${local.year}-$m-$d';
+    }
+
+    return raw.substring(0, 10);
+  }
+
+  /// Which rounds one place has paid, as 0-based indexes into [roundDates].
+  ///
+  /// A paid contribution counts for the round whose date it was made for:
+  /// the day the member picked, and the day the server's double-payment guard
+  /// compares. Only a contribution whose date matches no round (an older row,
+  /// or one recorded on another day) falls back to the earliest round still
+  /// open.
+  ///
+  /// Counting payments in order instead (round 1, round 2, ...) showed a
+  /// member who had paid today and tomorrow as having paid the first two
+  /// days, so today still looked due, and the Pay button then refused it as
+  /// "already paid", because by date it was.
+  static Set<int> paidRoundIndexes({
+    required List<String?> roundDates,
+    required Iterable<EqubPayment> payments,
+  }) {
+    final roundByDay = <String, int>{};
+    for (var i = 0; i < roundDates.length; i++) {
+      final key = dayKey(roundDates[i]);
+      if (key != null) roundByDay.putIfAbsent(key, () => i);
+    }
+
+    final paid = <int>{};
+    var unmatched = 0;
+
+    for (final payment in payments) {
+      if (!payment.isPaid) continue;
+
+      final key = dayKey(payment.paymentDate);
+      final round = key == null ? null : roundByDay[key];
+
+      // paid.add is false when that round is already covered, which makes
+      // a second payment for the same day an unmatched one.
+      if (round != null && paid.add(round)) continue;
+      unmatched++;
+    }
+
+    for (var i = 0; i < roundDates.length && unmatched > 0; i++) {
+      if (paid.add(i)) unmatched--;
+    }
+
+    return paid;
+  }
+
   /// Generates a schedule of payments based on start date, frequency, and existing payments.
   ///
   /// [startDate]: The date when the Equb starts (first payment due).
@@ -145,6 +210,42 @@ class PaymentCalculator {
 
         // Remove from available pool so it's not reused
         remainingPayments.removeAt(matchIndex);
+      }
+    }
+
+    // 2b. Pass 1b: payments the bank has not confirmed yet.
+    //
+    // A pending contribution is not money, so it never counts towards a round
+    // the way a paid one does: it is not in `remainingPayments`, and it never
+    // reaches the sequential fallback below. But a round with one in flight is
+    // not simply unpaid either — showing it as past due moments after the
+    // member paid is what Dashen's QA reported as the pending status going
+    // missing (item 6). Matched on payment_date, the round the contribution
+    // was raised for, and on nothing looser.
+    final inFlight = sortedPayments.where((p) => p.isPending).toList();
+    for (int i = 0; i < schedule.length && inFlight.isNotEmpty; i++) {
+      final item = schedule[i];
+      if (item.status == PaymentScheduleStatus.paid) continue;
+
+      final match = inFlight.indexWhere((p) {
+        final raw = p.paymentDate;
+        if (raw == null) return false;
+        final pLocal = DateTime.tryParse(raw)?.toLocal();
+        if (pLocal == null) return false;
+        final dLocal = item.dueDate.toLocal();
+        return pLocal.year == dLocal.year &&
+            pLocal.month == dLocal.month &&
+            pLocal.day == dLocal.day;
+      });
+
+      if (match != -1) {
+        schedule[i] = PaymentScheduleItem(
+          index: item.index,
+          dueDate: item.dueDate,
+          amount: item.amount,
+          status: PaymentScheduleStatus.pending,
+          paidPayment: inFlight.removeAt(match),
+        );
       }
     }
 

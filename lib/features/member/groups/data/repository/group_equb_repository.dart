@@ -112,6 +112,83 @@ class GroupEqubRepository {
     }
   }
 
+  // ------------------------------------------------------------------
+  // My Responsibility People
+  //
+  // People a member carries in a group who have no Niya account of their own.
+  // Each one takes a place in the circle like any other member; the sponsor
+  // pays every contribution on it.
+  // ------------------------------------------------------------------
+
+  ResultFuture<ResponsibilityPeople> getResponsibilityPeople(
+    int groupId, {
+    bool mineOnly = false,
+  }) async {
+    try {
+      final res = await dio.get(
+        GroupEqubEndpoints.responsibilityPeople(groupId),
+        queryParameters: {if (mineOnly) 'mine_only': 1},
+      );
+      return Right(ResponsibilityPeople.fromResponse(res.data as Map<String, dynamic>));
+    } on DioException catch (e) {
+      return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
+    } catch (e) {
+      return Left(ServerFailure(e.toString(), null));
+    }
+  }
+
+  ResultFuture<ResponsibilityPerson> addResponsibilityPerson(
+    int groupId,
+    ResponsibilityPersonDraft person,
+  ) async {
+    try {
+      final res = await dio.post(
+        GroupEqubEndpoints.responsibilityPeople(groupId),
+        data: person.toJson(),
+      );
+      return Right(
+        ResponsibilityPerson.fromJson(res.data['data'] as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
+    } catch (e) {
+      return Left(ServerFailure(e.toString(), null));
+    }
+  }
+
+  ResultFuture<ResponsibilityPerson> updateResponsibilityPerson(
+    int groupId,
+    int membershipId,
+    ResponsibilityPersonDraft person,
+  ) async {
+    try {
+      final res = await dio.patch(
+        GroupEqubEndpoints.responsibilityPerson(groupId, membershipId),
+        data: person.toJson(),
+      );
+      return Right(
+        ResponsibilityPerson.fromJson(res.data['data'] as Map<String, dynamic>),
+      );
+    } on DioException catch (e) {
+      return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
+    } catch (e) {
+      return Left(ServerFailure(e.toString(), null));
+    }
+  }
+
+  ResultFuture<String> removeResponsibilityPerson(int groupId, int membershipId) async {
+    try {
+      final res = await dio.delete(
+        GroupEqubEndpoints.responsibilityPerson(groupId, membershipId),
+      );
+      return Right(res.data?['message']?.toString() ?? 'Removed.');
+    } on DioException catch (e) {
+      return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
+    } catch (e) {
+      return Left(ServerFailure(e.toString(), null));
+    }
+  }
+
   ResultFuture<GroupLedger> getLedger(int groupId) async {
     try {
       final res = await dio.get(GroupEqubEndpoints.ledger(groupId));
@@ -166,26 +243,13 @@ class GroupEqubRepository {
   // Invitations
   // ------------------------------------------------------------------
 
-  /// Partial search by name or phone, for the "add members" autocomplete.
-  /// The API needs at least 2 characters and caps the result list.
-  ResultFuture<List<MemberLookupResult>> searchMembers(String query) async {
-    try {
-      final res = await dio.get(
-        GroupEqubEndpoints.memberSearch(),
-        queryParameters: {'q': query},
-      );
-      final list = (res.data?['data'] as List? ?? [])
-          .whereType<Map<String, dynamic>>()
-          .map(MemberLookupResult.fromJson)
-          .toList();
-      return Right(list);
-    } on DioException catch (e) {
-      return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
-    } catch (e) {
-      return Left(ServerFailure(e.toString(), null));
-    }
-  }
-
+  /// Adding someone to a group is done by full phone number only.
+  ///
+  /// There is deliberately no member search here. The endpoint that backed it
+  /// answered partial names with full names and phone numbers, which let any
+  /// signed-in account walk the member directory. Invitations resolve a number
+  /// to an existing member on the server, so the app never has to ask who is
+  /// registered — it just sends the number.
   ResultFuture<List<JoinableEqub>> getJoinableEqubs() async {
     try {
       final res = await dio.get(GroupEqubEndpoints.joinableGroups());
@@ -207,22 +271,6 @@ class GroupEqubRepository {
   /// New Group Equb screen open on real content instead of a spinner.
   List<JoinableEqub>? cachedJoinableEqubs() =>
       _readCached(CacheKeys.joinableEqubs, JoinableEqub.fromJson);
-
-  ResultFuture<MemberLookupResult?> lookupMember({String? phone, String? referralCode}) async {
-    try {
-      final res = await dio.post(GroupEqubEndpoints.memberLookup(), data: {
-        if (phone != null) 'phone': phone,
-        if (referralCode != null) 'referral_code': referralCode,
-      });
-      final data = res.data?['data'];
-      if (data == null) return const Right(null);
-      return Right(MemberLookupResult.fromJson(data as Map<String, dynamic>));
-    } on DioException catch (e) {
-      return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
-    } catch (e) {
-      return Left(ServerFailure(e.toString(), null));
-    }
-  }
 
   ResultFuture<String> invite(
     int groupId, {
@@ -405,6 +453,14 @@ class EqubCircle {
   final int contributionFrequencyDays;
   final int maxMembers;
   final int currentMembersCount;
+
+  /// How many of [currentMembersCount] are places held for people with no Niya
+  /// account, and how many of those are the signed-in member's to pay for.
+  /// Both are already counted inside the head-count — these are the breakdown.
+  final int responsibilitySeatsCount;
+  final int myResponsibilitySeatsCount;
+  final int responsibilitySeatLimit;
+
   final int roundsTotal;
   final int roundsCompleted;
   final double potPerRound;
@@ -413,6 +469,12 @@ class EqubCircle {
   final int splitPlanCursor;
   final int nextRoundWinners;
   final bool drawRequiresUpToDate;
+
+  /// Whether ordinary members may bring other people in. It also governs who
+  /// may hold a place for someone with no Niya account: adding one is the same
+  /// act, with the sponsor keeping the bill.
+  final bool allowMemberInvites;
+
   final bool isOwner;
   final String? ownerName;
   final DateTime? startDate;
@@ -431,6 +493,9 @@ class EqubCircle {
     required this.contributionFrequencyDays,
     required this.maxMembers,
     required this.currentMembersCount,
+    this.responsibilitySeatsCount = 0,
+    this.myResponsibilitySeatsCount = 0,
+    this.responsibilitySeatLimit = 10,
     required this.roundsTotal,
     required this.roundsCompleted,
     required this.potPerRound,
@@ -439,6 +504,7 @@ class EqubCircle {
     required this.splitPlanCursor,
     required this.nextRoundWinners,
     required this.drawRequiresUpToDate,
+    this.allowMemberInvites = false,
     required this.isOwner,
     this.ownerName,
     this.startDate,
@@ -464,6 +530,11 @@ class EqubCircle {
       contributionFrequencyDays: _toInt(json['contribution_frequency_days']),
       maxMembers: _toInt(json['max_members']),
       currentMembersCount: _toInt(json['current_members_count']),
+      responsibilitySeatsCount: _toInt(json['responsibility_seats_count']),
+      myResponsibilitySeatsCount: _toInt(json['my_responsibility_seats_count']),
+      responsibilitySeatLimit: _toInt(json['responsibility_seat_limit']) == 0
+          ? 10
+          : _toInt(json['responsibility_seat_limit']),
       roundsTotal: _toInt(json['rounds_total']),
       roundsCompleted: _toInt(json['rounds_completed']),
       potPerRound: _toDouble(json['pot_per_round']),
@@ -472,6 +543,7 @@ class EqubCircle {
       splitPlanCursor: _toInt(json['split_plan_cursor']),
       nextRoundWinners: _toInt(json['next_round_winners']),
       drawRequiresUpToDate: json['draw_requires_up_to_date'] == true,
+      allowMemberInvites: json['allow_member_invites'] == true,
       isOwner: json['is_owner'] == true,
       ownerName: (json['owner'] as Map?)?['name']?.toString(),
       startDate: DateTime.tryParse(json['equb_start_date']?.toString() ?? ''),
@@ -517,6 +589,10 @@ class LedgerTotals {
   final int membersPaidUp;
   final int membersBehind;
 
+  /// How many of [membersCount] are places held for people with no Niya
+  /// account. Already inside the head-count, not an addition to it.
+  final int responsibilitySeatsCount;
+
   const LedgerTotals({
     required this.membersCount,
     required this.roundsTotal,
@@ -533,6 +609,7 @@ class LedgerTotals {
     required this.progress,
     required this.membersPaidUp,
     required this.membersBehind,
+    this.responsibilitySeatsCount = 0,
   });
 
   // ----------------------------------------------------------------
@@ -607,6 +684,7 @@ class LedgerTotals {
       progress: _toDouble(json['progress']),
       membersPaidUp: _toInt(json['members_paid_up']),
       membersBehind: _toInt(json['members_behind']),
+      responsibilitySeatsCount: _toInt(json['responsibility_seats_count']),
     );
   }
 }
@@ -618,6 +696,14 @@ class LedgerMember {
   final String? phone;
   final String? avatarUrl;
   final String role;
+
+  /// A place in the circle held for someone with no Niya account. It pays in
+  /// and can win exactly like any other member; the difference is only who
+  /// owes the money, which is [sponsorName].
+  final bool isResponsibilitySeat;
+  final int? sponsorMemberId;
+  final String? sponsorName;
+  final String? relation;
   final int roundsTotal;
   final int roundsDue;
   final int roundsPaid;
@@ -640,6 +726,10 @@ class LedgerMember {
     this.phone,
     this.avatarUrl,
     required this.role,
+    this.isResponsibilitySeat = false,
+    this.sponsorMemberId,
+    this.sponsorName,
+    this.relation,
     required this.roundsTotal,
     required this.roundsDue,
     required this.roundsPaid,
@@ -666,6 +756,12 @@ class LedgerMember {
       phone: json['phone']?.toString(),
       avatarUrl: json['profile_picture_url']?.toString(),
       role: json['role']?.toString() ?? 'member',
+      isResponsibilitySeat: json['is_responsibility_seat'] == true,
+      sponsorMemberId: json['sponsor_member_id'] == null
+          ? null
+          : _toInt(json['sponsor_member_id']),
+      sponsorName: json['sponsor_name']?.toString(),
+      relation: json['relation']?.toString(),
       roundsTotal: _toInt(json['rounds_total']),
       roundsDue: _toInt(json['rounds_due']),
       roundsPaid: _toInt(json['rounds_paid']),
@@ -681,6 +777,171 @@ class LedgerMember {
       winDate: DateTime.tryParse(json['win_date']?.toString() ?? ''),
       isEligibleForDraw: json['is_eligible_for_draw'] == true,
     );
+  }
+}
+
+/// One person a member is responsible for inside a group: a child, a parent,
+/// anyone without a Niya account.
+///
+/// The underlying row is a membership, which is why [membershipId] is the
+/// handle for paying, editing and removing them.
+class ResponsibilityPerson {
+  final int membershipId;
+  final int groupId;
+  final String name;
+  final String? phone;
+  final String? relation;
+  final String? note;
+
+  final int? sponsorMemberId;
+  final String? sponsorName;
+
+  /// True when the signed-in member is the one paying for this person.
+  final bool isMine;
+
+  final double contributionAmount;
+  final int frequencyDays;
+  final int? roundsPaid;
+  final double? totalPaid;
+  final bool hasWon;
+  final DateTime? winDate;
+
+  /// Whether their place can still be taken out of the circle. Decided by the
+  /// server, because once they have contributed or won, the money belongs to
+  /// the other members and the place cannot simply be deleted.
+  final bool canRemove;
+  final String? removeBlockReason;
+
+  const ResponsibilityPerson({
+    required this.membershipId,
+    required this.groupId,
+    required this.name,
+    this.phone,
+    this.relation,
+    this.note,
+    this.sponsorMemberId,
+    this.sponsorName,
+    required this.isMine,
+    required this.contributionAmount,
+    required this.frequencyDays,
+    this.roundsPaid,
+    this.totalPaid,
+    required this.hasWon,
+    this.winDate,
+    required this.canRemove,
+    this.removeBlockReason,
+  });
+
+  factory ResponsibilityPerson.fromJson(Map<String, dynamic> json) {
+    return ResponsibilityPerson(
+      membershipId: _toInt(json['membership_id']),
+      groupId: _toInt(json['equb_group_id']),
+      name: json['name']?.toString() ?? 'Person',
+      phone: json['phone']?.toString(),
+      relation: json['relation']?.toString(),
+      note: json['note']?.toString(),
+      sponsorMemberId: json['sponsor_member_id'] == null
+          ? null
+          : _toInt(json['sponsor_member_id']),
+      sponsorName: json['sponsor_name']?.toString(),
+      isMine: json['is_mine'] == true,
+      contributionAmount: _toDouble(json['contribution_amount']),
+      frequencyDays: _toInt(json['contribution_frequency_days']),
+      // Null and zero mean different things here: null is "not sent", which
+      // must not be shown as "nothing paid".
+      roundsPaid: json['rounds_paid'] == null ? null : _toInt(json['rounds_paid']),
+      totalPaid: json['total_paid'] == null ? null : _toDouble(json['total_paid']),
+      hasWon: json['has_won'] == true,
+      winDate: DateTime.tryParse(json['win_date']?.toString() ?? ''),
+      canRemove: json['can_remove'] == true,
+      removeBlockReason: json['remove_block_reason']?.toString(),
+    );
+  }
+}
+
+/// The responsibility list for a group, plus what the caller is allowed to do
+/// with it.
+class ResponsibilityPeople {
+  final List<ResponsibilityPerson> people;
+
+  /// How many of these the signed-in member is carrying, and the ceiling.
+  final int myCount;
+  final int limitPerMember;
+  final bool canAdd;
+
+  const ResponsibilityPeople({
+    required this.people,
+    required this.myCount,
+    required this.limitPerMember,
+    required this.canAdd,
+  });
+
+  bool get isAtLimit => myCount >= limitPerMember;
+  int get remainingSlots => (limitPerMember - myCount).clamp(0, limitPerMember);
+
+  List<ResponsibilityPerson> get mine =>
+      people.where((p) => p.isMine).toList(growable: false);
+
+  factory ResponsibilityPeople.fromResponse(Map<String, dynamic> json) {
+    final meta = (json['meta'] as Map?)?.cast<String, dynamic>() ?? const {};
+
+    return ResponsibilityPeople(
+      people: (json['data'] as List? ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(ResponsibilityPerson.fromJson)
+          .toList(),
+      myCount: _toInt(meta['my_count']),
+      limitPerMember: _toInt(meta['limit_per_member']) == 0
+          ? 10
+          : _toInt(meta['limit_per_member']),
+      canAdd: meta['can_add'] == true,
+    );
+  }
+}
+
+/// What the app sends when adding or correcting one of these people.
+///
+/// Only a name is required, and nothing about money is sent: the contribution
+/// comes from the Equb and the sponsor pays it, so there is no amount for the
+/// app to choose.
+class ResponsibilityPersonDraft {
+  final String name;
+  final String? phone;
+  final String? relation;
+  final String? note;
+
+  const ResponsibilityPersonDraft({
+    required this.name,
+    this.phone,
+    this.relation,
+    this.note,
+  });
+
+  ResponsibilityPersonDraft copyWith({
+    String? name,
+    String? phone,
+    String? relation,
+    String? note,
+  }) {
+    return ResponsibilityPersonDraft(
+      name: name ?? this.name,
+      phone: phone ?? this.phone,
+      relation: relation ?? this.relation,
+      note: note ?? this.note,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    final phoneValue = (phone ?? '').trim();
+
+    return {
+      'name': name.trim(),
+      // Optional throughout: most of these people have no phone at all, which
+      // is the reason the feature exists.
+      if (phoneValue.isNotEmpty) 'phone': normalizeEthiopianPhone(phoneValue),
+      if ((relation ?? '').trim().isNotEmpty) 'relation': relation!.trim(),
+      if ((note ?? '').trim().isNotEmpty) 'note': note!.trim(),
+    };
   }
 }
 
@@ -726,7 +987,16 @@ class DrawWinner {
   final String? avatarUrl;
   final int position;
   final double amountWon;
+
+  /// True when this share is the signed-in member's money — either they won it
+  /// themselves, or it is a place they hold for someone else and have been
+  /// paying for. The server decides, following the money rather than the name.
   final bool isMe;
+
+  /// Set when the winning place is held on someone else's behalf, so the round
+  /// can read "Amina (you pay for her)" rather than looking like a stranger.
+  final bool isResponsibilitySeat;
+  final String? sponsorName;
 
   const DrawWinner({
     required this.membershipId,
@@ -736,6 +1006,8 @@ class DrawWinner {
     required this.position,
     required this.amountWon,
     required this.isMe,
+    this.isResponsibilitySeat = false,
+    this.sponsorName,
   });
 
   factory DrawWinner.fromJson(Map<String, dynamic> json) {
@@ -747,6 +1019,8 @@ class DrawWinner {
       position: _toInt(json['position']),
       amountWon: _toDouble(json['amount_won']),
       isMe: json['is_me'] == true,
+      isResponsibilitySeat: json['is_responsibility_seat'] == true,
+      sponsorName: json['sponsor_name']?.toString(),
     );
   }
 }
@@ -943,3 +1217,16 @@ String normalizeEthiopianPhone(String input) {
 
   return cleaned;
 }
+
+/// A complete Ethiopian mobile number: +251 followed by nine digits starting
+/// 9 or 7.
+///
+/// This is the whole gate on "Add members" now. Nothing is sent anywhere and
+/// nothing is shown about the person until a number is complete, because a
+/// partial number is exactly what made the old search a directory dump: it let
+/// someone probe the member base a fragment at a time. Knowing the full number
+/// already means you know the person.
+final _ethiopianMobile = RegExp(r'^\+251[79]\d{8}$');
+
+bool isCompleteEthiopianPhone(String input) =>
+    _ethiopianMobile.hasMatch(normalizeEthiopianPhone(input.trim()));

@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/core/init/injections.dart';
+import 'package:niya_equb/core/util/app_update_gate.dart';
 import 'package:niya_equb/features/member/home/presentation/screens/ekub_home_screen.dart';
 import 'package:niya_equb/features/member/packages/presentation/screens/ekub_packages_screen.dart';
 import 'package:niya_equb/features/member/profile/state/ekub_profile_bloc.dart';
@@ -30,7 +31,13 @@ class EkubMainScreen extends StatefulWidget {
   State<EkubMainScreen> createState() => _EkubMainScreenState();
 }
 
-class _EkubMainScreenState extends State<EkubMainScreen> {
+/// Offers the store update here rather than on the splash screen for two
+/// reasons. The splash is already racing auth, cache warm-up and the
+/// notification handshake, and a sheet thrown at a screen that is about to be
+/// replaced gets torn down mid-animation. And this is the first screen a
+/// member actually stops on, which is where an interruption is least likely to
+/// land on top of something they were in the middle of.
+class _EkubMainScreenState extends State<EkubMainScreen> with AppUpdateGate {
   int _index = 0;
   late final PageController _controller;
 
@@ -38,10 +45,12 @@ class _EkubMainScreenState extends State<EkubMainScreen> {
   void initState() {
     super.initState();
     _controller = PageController(initialPage: _index);
+    startAppUpdateWatch();
   }
 
   @override
   void dispose() {
+    stopAppUpdateWatch();
     _controller.dispose();
     super.dispose();
   }

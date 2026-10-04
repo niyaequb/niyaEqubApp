@@ -20,9 +20,18 @@ class AzkarDetailScreen extends StatefulWidget {
 
 class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
   late final PageController _pageController;
+
+  /// Recitations done for each step **of the circuit currently in progress**.
+  /// Reset at the start of every circuit; finished circuits are remembered by
+  /// [_cycle] alone, so the array never has to grow.
   late List<int> _done;
 
   int _index = 0;
+
+  /// Which circuit is under way, zero-based. Always 0 for the categories that
+  /// are simply read once through.
+  int _cycle = 0;
+
   bool _showTransliteration = true;
   bool _advancing = false;
 
@@ -41,6 +50,11 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
 
   int get _total => widget.category.items.length;
 
+  int get _cycles => widget.category.cycles;
+
+  bool get _hasCycles => widget.category.hasCycles;
+
+  /// Steps finished in the circuit currently in progress.
   int get _completedItems {
     var count = 0;
     for (var i = 0; i < _total; i++) {
@@ -49,12 +63,22 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
     return count;
   }
 
-  bool get _isComplete => _completedItems == _total;
+  bool get _cycleComplete => _completedItems == _total;
+
+  /// The whole rite is done only when the last step of the last circuit is.
+  /// For an ordinary category [_cycles] is 1 and this is the old behaviour.
+  bool get _isComplete => _cycleComplete && _cycle >= _cycles - 1;
 
   double get _overallProgress {
     final target = widget.category.totalRepeats;
     if (target == 0) return 0;
-    return _done.fold<int>(0, (sum, value) => sum + value) / target;
+
+    // Circuits already behind us count in full; only the current one is
+    // counted step by step.
+    final banked = _cycle * widget.category.repeatsPerCycle;
+    final current = _done.fold<int>(0, (sum, value) => sum + value);
+
+    return ((banked + current) / target).clamp(0.0, 1.0);
   }
 
   void _tapCounter() {
@@ -63,12 +87,27 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
 
     setState(() => _done[_index]++);
 
-    if (_done[_index] >= dhikr.repeat) {
-      HapticFeedback.mediumImpact();
-      _advanceSoon();
-    } else {
+    if (_done[_index] < dhikr.repeat) {
       HapticFeedback.selectionClick();
+      return;
     }
+
+    HapticFeedback.mediumImpact();
+
+    if (_index < _total - 1) {
+      // More steps left in this circuit.
+      _advanceSoon();
+      return;
+    }
+
+    if (_cycle < _cycles - 1) {
+      // Last step of a circuit that is not the last: start the next lap.
+      _startNextCycleSoon();
+      return;
+    }
+
+    // Seventh circuit finished.
+    HapticFeedback.heavyImpact();
   }
 
   void _advanceSoon() {
@@ -85,12 +124,58 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
     });
   }
 
+  /// Roll over to the next circuit: bank the one just finished, clear the step
+  /// counts and go back to the first step.
+  ///
+  /// The page jumps rather than animating. Sliding backwards through three
+  /// pages reads as an undo, when what has actually happened is progress — a
+  /// lap completed and a new one begun.
+  void _startNextCycleSoon() {
+    if (_advancing) return;
+    _advancing = true;
+
+    Future.delayed(const Duration(milliseconds: 620), () {
+      if (!mounted) return;
+      _advancing = false;
+
+      setState(() {
+        _cycle++;
+        _done = List<int>.filled(_total, 0);
+        _index = 0;
+      });
+
+      _pageController.jumpToPage(0);
+      HapticFeedback.mediumImpact();
+    });
+  }
+
   void _reset() {
     setState(() {
       _done = List<int>.filled(_total, 0);
       _index = 0;
+      _cycle = 0;
     });
     _pageController.jumpToPage(0);
+  }
+
+  /// The category's display title.
+  ///
+  /// The screen used to rebuild this as `'azkar_${category.id}_title'.tr`,
+  /// which only works for categories whose id happens to match a key in that
+  /// exact shape. The Umrah du'a categories have ids like `umrah_dua_travel`,
+  /// so it built `azkar_umrah_dua_travel_title`, found nothing, and printed
+  /// the key itself into the app bar.
+  ///
+  /// AzkarCategory already carries a resolved [titleEn]. Preferring it fixes
+  /// the new categories, and the legacy lookup is kept ahead of it so nothing
+  /// that relied on the old pattern changes.
+  String get _title {
+    final legacyKey = 'azkar_${widget.category.id}_title';
+    final translated = legacyKey.tr;
+
+    // GetX returns the key unchanged when there is no entry for it, which is
+    // the only signal available that the lookup missed.
+    return translated == legacyKey ? widget.category.titleEn : translated;
   }
 
   @override
@@ -127,7 +212,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
         title: Column(
           children: [
             Text(
-              ('azkar_${category.id}_title').tr,
+              _title,
               style: TextStyle(
                 fontSize: 14.5.sp,
                 fontWeight: FontWeight.w700,
@@ -168,7 +253,10 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
       ),
       body: Column(
         children: [
-          if (_isComplete) _completeBanner(category),
+          if (_isComplete)
+            _completeBanner(category)
+          else if (_hasCycles)
+            _circuitTracker(appColors, category),
           Expanded(
             child: PageView.builder(
               controller: _pageController,
@@ -188,11 +276,91 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
     );
   }
 
+  /// Which lap the pilgrim is on, and how many are left.
+  ///
+  /// This is the piece the old screen had no room for: tawaf is counted in
+  /// circuits, and a pilgrim mid-tawaf needs to know they are on the fourth
+  /// without holding it in their head while walking. The dots make the count
+  /// readable at a glance in bright sun and a crowd, where reading a sentence
+  /// is not realistic.
+  Widget _circuitTracker(dynamic appColors, AzkarCategory category) {
+    final label = (category.cycleLabelKey ?? 'tawaf_circuit').tr;
+
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.fromLTRB(12.w, 12.h, 12.w, 0),
+      padding: EdgeInsets.symmetric(vertical: 11.h, horizontal: 14.w),
+      decoration: BoxDecoration(
+        color: category.accent.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(14.r),
+        border: Border.all(color: category.accent.withValues(alpha: 0.28)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.refresh_rounded, size: 17.sp, color: category.accent),
+          SizedBox(width: 9.w),
+          Expanded(
+            child: Text(
+              'azkar_circuit_of'.trParams({
+                'label': label,
+                'current': '${_cycle + 1}',
+                'total': '$_cycles',
+              }),
+              style: TextStyle(
+                fontSize: 12.sp,
+                fontWeight: FontWeight.w700,
+                color: category.accent,
+              ),
+            ),
+          ),
+          // One dot per circuit: solid for laps finished, ringed for the one
+          // under way, hollow for those still to come.
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: List.generate(_cycles, (i) {
+              final done = i < _cycle;
+              final current = i == _cycle;
+
+              return Container(
+                width: current ? 9.r : 7.r,
+                height: current ? 9.r : 7.r,
+                margin: EdgeInsets.only(left: 4.w),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: done || current
+                      ? category.accent
+                      : category.accent.withValues(alpha: 0.22),
+                  border: current
+                      ? Border.all(
+                          color: category.accent.withValues(alpha: 0.35),
+                          width: 2,
+                        )
+                      : null,
+                ),
+              );
+            }),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _counterBar(dynamic appColors, AzkarCategory category) {
     final dhikr = category.items[_index];
     final done = _done[_index];
     final target = dhikr.repeat;
     final isDone = done >= target;
+
+    // For a category walked in circuits, the two readouts answer "where am I
+    // in this lap" and "which lap am I on". The right-hand slot used to show
+    // the current dhikr's repeat count, which for tawaf was the number 7 — the
+    // very number that made the screen read as "say this seven times".
+    final leftLabel =
+        _hasCycles ? 'azkar_circuit_step'.tr : 'azkar_total_dhikr'.tr;
+    final rightLabel = _hasCycles
+        ? (category.cycleLabelKey ?? 'tawaf_circuit').tr
+        : 'azkar_dhikr_count'.tr;
+    final rightValue = _hasCycles ? '${_cycle + 1} / $_cycles' : '$target';
 
     return Container(
       padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 16.h),
@@ -219,7 +387,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
               child: _readout(
                 appColors,
                 category,
-                label: 'azkar_total_dhikr'.tr,
+                label: leftLabel,
                 value: '${_index + 1}/$_total',
               ),
             ),
@@ -228,8 +396,8 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
               child: _readout(
                 appColors,
                 category,
-                label: 'azkar_dhikr_count'.tr,
-                value: '$target',
+                label: rightLabel,
+                value: rightValue,
               ),
             ),
           ],
@@ -472,7 +640,9 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
           SizedBox(width: 10.w),
           Expanded(
             child: Text(
-              'azkar_complete'.tr,
+              // Tawaf ends on a different note from a set of morning azkar:
+              // the thing finished is seven laps, not a list.
+              _hasCycles ? 'azkar_cycles_complete'.tr : 'azkar_complete'.tr,
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w700,

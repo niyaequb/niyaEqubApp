@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
@@ -13,8 +11,14 @@ import 'package:niya_equb/shared/widgets/custom_text_field.dart';
 import 'package:niya_equb/shared/widgets/rounded_button.dart';
 import 'package:share_plus/share_plus.dart';
 
-/// Look people up by their exact phone number and build an invite list.
-/// Numbers that are not on Niya yet are invited by SMS.
+/// Invite people to a group by their full phone number.
+///
+/// There is deliberately no member search here. It used to answer a partial
+/// name with a list of matching members and their phone numbers, which let any
+/// signed-in account read the member directory a fragment at a time. Whether a
+/// number belongs to a registered member is never disclosed either: the server
+/// resolves that when the invitation goes out, sending a push to people who
+/// have the app and an SMS to those who do not.
 class InviteMembersScreen extends StatefulWidget {
   static const String routeName = '/invite-equb-members';
 
@@ -31,99 +35,53 @@ class _InviteMembersScreenState extends State<InviteMembersScreen> {
   final _phone = TextEditingController();
   final _message = TextEditingController();
 
-  final _members = <MemberLookupResult>[];
   final _phones = <String>[];
 
-  List<MemberLookupResult> _results = [];
-  bool _searching = false;
-  bool _searched = false;
-  String? _searchError;
-  Timer? _debounce;
+  /// Live format check on what is typed. Nothing is sent anywhere while
+  /// typing.
+  bool _phoneReady = false;
   bool _sending = false;
 
   @override
   void dispose() {
-    _debounce?.cancel();
     _phone.dispose();
     _message.dispose();
     super.dispose();
   }
 
-  /// Same behaviour as the create screen: search from the first character,
-  /// debounced, matching on name or phone in any format.
-  void _onSearchChanged(String raw) {
-    _debounce?.cancel();
+  void _onPhoneChanged(String raw) {
+    final ready = isCompleteEthiopianPhone(raw);
+    if (ready == _phoneReady) return;
 
-    final term = raw.trim();
-    if (term.isEmpty) {
-      setState(() {
-        _results = [];
-        _searched = false;
-      });
+    setState(() => _phoneReady = ready);
+  }
+
+  void _addPhone() {
+    final normalised = normalizeEthiopianPhone(_phone.text.trim());
+
+    if (!isCompleteEthiopianPhone(normalised)) return;
+
+    if (_phones.contains(normalised)) {
+      showErrorSnackBar(context, 'phone_already_added'.tr);
       return;
     }
-
-    _debounce = Timer(const Duration(milliseconds: 250), () => _runSearch(term));
-  }
-
-  Future<void> _runSearch(String term) async {
-    if (!mounted) return;
-    setState(() => _searching = true);
-
-    final looksLikePhone = RegExp(r'^[0-9+]{2,}$').hasMatch(term);
-    final query = looksLikePhone ? normalizeEthiopianPhone(term) : term;
-
-    final result = await sl<GroupEqubRepository>().searchMembers(query);
-    if (!mounted) return;
-
-    result.fold(
-      (failure) => setState(() {
-        _searching = false;
-        _searched = true;
-        _results = [];
-        _searchError = failure.errorMessage;
-      }),
-      (list) => setState(() {
-        _searching = false;
-        _searched = true;
-        _searchError = null;
-        _results = list
-            .where((m) => !_members.any((p) => p.memberId == m.memberId))
-            .toList();
-      }),
-    );
-  }
-
-  void _add(MemberLookupResult member) {
-    setState(() {
-      _members.add(member);
-      _results = [];
-      _searched = false;
-      _phone.clear();
-    });
-    FocusManager.instance.primaryFocus?.unfocus();
-  }
-
-  void _addRawPhone() {
-    final normalised = normalizeEthiopianPhone(_phone.text.trim());
-    if (normalised.length < 9 || _phones.contains(normalised)) return;
 
     setState(() {
       _phones.add(normalised);
       _phone.clear();
-      _results = [];
-      _searched = false;
+      _phoneReady = false;
     });
+
+    FocusManager.instance.primaryFocus?.unfocus();
   }
 
   Future<void> _send() async {
-    if (_members.isEmpty && _phones.isEmpty) return;
+    if (_phones.isEmpty) return;
 
     setState(() => _sending = true);
 
     final result = await sl<GroupEqubRepository>().invite(
       widget.groupId,
-      memberIds: _members.map((m) => m.memberId).toList(),
       phones: _phones,
       message: _message.text.trim(),
     );
@@ -144,7 +102,8 @@ class _InviteMembersScreenState extends State<InviteMembersScreen> {
   Widget build(BuildContext context) {
     final appColors = colors(context);
     final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
-    final total = _members.length + _phones.length;
+    const green = Color(0xFF16A34A);
+    final total = _phones.length;
 
     return Scaffold(
       backgroundColor: appColors.scaffoldBackgroundColor,
@@ -165,14 +124,14 @@ class _InviteMembersScreenState extends State<InviteMembersScreen> {
           if (widget.inviteCode != null) _inviteCodeCard(context),
 
           CustomText(
-            title: 'Add by name or phone number',
+            title: 'add_by_phone_title'.tr,
             fontSize: 12.5.sp,
             fontWeight: FontWeight.w700,
             textColor: appColors.titleTextColor,
           ),
           SizedBox(height: 4.h),
           CustomText(
-            title: 'Results appear as you type. A number that is not on Niya can still be invited by SMS.',
+            title: 'add_members_phone_only_hint'.tr,
             fontSize: 11.sp,
             fontWeight: FontWeight.w400,
             textColor: appColors.bodyTextSmallColor,
@@ -183,25 +142,40 @@ class _InviteMembersScreenState extends State<InviteMembersScreen> {
               Expanded(
                 child: CustomTextField(
                   controller: _phone,
-                  label: 'Name or 09xxxxxxxx',
-                  onChanged: _onSearchChanged,
+                  label: '09xxxxxxxx',
+                  keyboardType: TextInputType.phone,
+                  onChanged: _onPhoneChanged,
                 ),
               ),
-              if (_searching)
-                Padding(
-                  padding: EdgeInsets.only(left: 12.w),
-                  child: SizedBox(
-                    width: 18.r,
-                    height: 18.r,
-                    child: CircularProgressIndicator(strokeWidth: 2.w),
-                  ),
+              SizedBox(width: 10.w),
+              // The tick means "complete number, ready to invite". It never
+              // means "this person has an account" — that is not disclosed.
+              IconButton(
+                onPressed: _phoneReady ? _addPhone : null,
+                visualDensity: VisualDensity.compact,
+                tooltip: 'add'.tr,
+                icon: Icon(
+                  _phoneReady
+                      ? Icons.check_circle_rounded
+                      : Icons.check_circle_outline_rounded,
+                  size: 28.r,
+                  color: _phoneReady
+                      ? green
+                      : (appColors.hintTextColor ?? Colors.grey)
+                          .withValues(alpha: 0.4),
                 ),
+              ),
             ],
           ),
-          if (_results.isNotEmpty)
-            _resultsList(context)
-          else if (_searched && !_searching)
-            _noResults(context),
+          if (_phone.text.trim().isNotEmpty && !_phoneReady) ...[
+            SizedBox(height: 6.h),
+            CustomText(
+              title: 'phone_incomplete_hint'.tr,
+              fontSize: 10.5.sp,
+              fontWeight: FontWeight.w400,
+              textColor: appColors.hintTextColor,
+            ),
+          ],
           SizedBox(height: 22.h),
 
           if (total == 0)
@@ -231,19 +205,11 @@ class _InviteMembersScreenState extends State<InviteMembersScreen> {
               textColor: appColors.titleTextColor,
             ),
             SizedBox(height: 10.h),
-            ..._members.map((m) => _chipRow(
-                  context,
-                  title: m.name,
-                  subtitle: m.phone ?? '',
-                  badge: 'On Niya',
-                  badgeColor: const Color(0xFF16A34A),
-                  onRemove: () => setState(() => _members.remove(m)),
-                )),
             ..._phones.map((p) => _chipRow(
                   context,
                   title: p,
-                  subtitle: 'Will receive an SMS invite',
-                  badge: 'New',
+                  subtitle: 'phone_ready_hint'.tr,
+                  badge: 'invite'.tr,
                   badgeColor: primary,
                   onRemove: () => setState(() => _phones.remove(p)),
                 )),
@@ -262,103 +228,6 @@ class _InviteMembersScreenState extends State<InviteMembersScreen> {
               onPressed: _send,
             ),
           ],
-        ],
-      ),
-    );
-  }
-
-  /// Tap-to-add search results.
-  Widget _resultsList(BuildContext context) {
-    final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
-
-    return Container(
-      margin: EdgeInsets.only(top: 8.h),
-      decoration: BoxDecoration(
-        color: appColors.accentColor,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: (appColors.borderColor ?? AppStaticColor.borderLight).withValues(alpha: 0.7),
-        ),
-      ),
-      child: Column(
-        children: _results.take(6).map((m) {
-          return ListTile(
-            dense: true,
-            leading: CircleAvatar(
-              radius: 16.r,
-              backgroundColor: primary.withValues(alpha: 0.14),
-              child: CustomText(
-                title: m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w700,
-                textColor: primary,
-              ),
-            ),
-            title: CustomText(
-              title: m.name,
-              fontSize: 12.5.sp,
-              fontWeight: FontWeight.w600,
-              textColor: appColors.titleTextColor,
-            ),
-            subtitle: CustomText(
-              title: m.phone ?? '',
-              fontSize: 10.5.sp,
-              fontWeight: FontWeight.w400,
-              textColor: appColors.bodyTextSmallColor,
-            ),
-            trailing: Icon(Icons.add_circle_outline_rounded, size: 20.r, color: primary),
-            onTap: () => _add(m),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  /// Nothing matched: offer an SMS invite when it looks like a number.
-  Widget _noResults(BuildContext context) {
-    final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
-    final typed = _phone.text.trim();
-    final looksLikePhone = RegExp(r'^[0-9+]{6,}$').hasMatch(typed);
-
-    return Container(
-      margin: EdgeInsets.only(top: 8.h),
-      padding: EdgeInsets.all(14.r),
-      decoration: BoxDecoration(
-        color: appColors.accentColor,
-        borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(
-          color: (appColors.borderColor ?? AppStaticColor.borderLight).withValues(alpha: 0.7),
-        ),
-      ),
-      child: Row(
-        children: [
-          Icon(Icons.search_off_rounded, size: 17.r, color: appColors.hintTextColor),
-          SizedBox(width: 10.w),
-          Expanded(
-            child: CustomText(
-              title: _searchError ??
-                  (looksLikePhone
-                      ? 'Not on Niya yet. Tap Invite to send an SMS.'
-                      : 'Nobody matches that. Try a phone number instead.'),
-              fontSize: 11.5.sp,
-              fontWeight: FontWeight.w400,
-              textColor: _searchError != null
-                  ? const Color(0xFFDC2626)
-                  : appColors.bodyTextSmallColor,
-            ),
-          ),
-          if (looksLikePhone && _searchError == null)
-            TextButton(
-              onPressed: _addRawPhone,
-              child: CustomText(
-                title: 'Invite',
-                fontSize: 12.sp,
-                fontWeight: FontWeight.w700,
-                textColor: primary,
-              ),
-            ),
         ],
       ),
     );
