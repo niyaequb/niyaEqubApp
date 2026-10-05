@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:niya_equb/core/config/app_color.dart';
 import 'package:niya_equb/core/config/app_theme.dart';
 
 class CustomTextField extends StatelessWidget {
@@ -34,12 +35,20 @@ class CustomTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = colors(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryBrandColor = appColors.primaryColor;
+    final primaryBrandColor =
+        appColors.primaryColor ?? AppStaticColor.primaryAmber;
 
-    // LinkedIn Dark Palette Colors
-    const Color darkBorder = Color(0xFF38434F);
-    const Color darkText = Colors.white;
-    const Color darkHint = Colors.white38;
+    // The dark palette is read from the theme rather than hardcoded, so a
+    // subtree that installs its own AppColors - the Equb night screens, for
+    // one - gets fields in ITS colours instead of these. The fallbacks are the
+    // values this field used before, so ordinary dark mode is unchanged if the
+    // theme ever arrives without them. The light branch below is deliberately
+    // left alone: its amber-tinted border is how every form in the app looks.
+    final Color darkBorder = appColors.borderColor ?? const Color(0xFF38434F);
+    final Color darkText = appColors.titleTextColor ?? Colors.white;
+    final Color darkHint = appColors.hintTextColor ?? Colors.white38;
+    final Color darkFill =
+        (appColors.accentColor ?? Colors.white).withValues(alpha: 0.04);
 
     return TextFormField(
       enabled: enabled,
@@ -62,7 +71,7 @@ class CustomTextField extends StatelessWidget {
         ),
         filled: isDark,
         // Using a very slight fill in dark mode makes the input area clearer
-        fillColor: isDark ? Colors.white.withOpacity(0.02) : Colors.transparent,
+        fillColor: isDark ? darkFill : Colors.transparent,
         contentPadding: const EdgeInsets.symmetric(
           vertical: 14,
           horizontal: 16,
@@ -72,7 +81,7 @@ class CustomTextField extends StatelessWidget {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius!),
           borderSide: BorderSide(
-            color: isDark ? darkBorder : primaryBrandColor!.withOpacity(0.3),
+            color: isDark ? darkBorder : primaryBrandColor.withValues(alpha: 0.3),
             width: 1.0,
           ),
         ),
@@ -80,7 +89,7 @@ class CustomTextField extends StatelessWidget {
         // Focused Border
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius!),
-          borderSide: BorderSide(color: primaryBrandColor!, width: 1.5),
+          borderSide: BorderSide(color: primaryBrandColor, width: 1.5),
         ),
 
         // Error Border
@@ -99,7 +108,9 @@ class CustomTextField extends StatelessWidget {
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(borderRadius!),
           borderSide: BorderSide(
-            color: isDark ? darkBorder.withOpacity(0.5) : Colors.grey.shade200,
+            color: isDark
+                  ? darkBorder.withValues(alpha: 0.5)
+                  : Colors.grey.shade200,
           ),
         ),
       ),

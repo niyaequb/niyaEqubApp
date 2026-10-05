@@ -40,6 +40,16 @@ String etbCompact(double v) {
 /// ledger below needs it too, and that file must not import upwards.
 const Color kResponsibilityTint = Color(0xFF7C3AED);
 
+/// The same colour for a dark surface. Violet-600 is the right weight on
+/// white and goes to mud on navy, so the night screens get violet-400.
+const Color kResponsibilityTintNight = Color(0xFFA78BFA);
+
+/// Whichever of the two the surface underneath calls for.
+Color responsibilityTint(BuildContext context) =>
+    Theme.of(context).brightness == Brightness.dark
+    ? kResponsibilityTintNight
+    : kResponsibilityTint;
+
 /// Colour + label for a member's contribution standing.
 class PaymentStatusStyle {
   final String label;
@@ -417,7 +427,7 @@ class MemberLedgerTile extends StatelessWidget {
                       Row(
                         children: [
                           Icon(Icons.volunteer_activism_outlined,
-                              size: 11.r, color: kResponsibilityTint),
+                              size: 11.r, color: responsibilityTint(context)),
                           SizedBox(width: 4.w),
                           Flexible(
                             child: CustomText(
@@ -426,7 +436,7 @@ class MemberLedgerTile extends StatelessWidget {
                                   : '${'paid_by'.tr} ${member.sponsorName}',
                               fontSize: 10.sp,
                               fontWeight: FontWeight.w600,
-                              textColor: kResponsibilityTint,
+                              textColor: responsibilityTint(context),
                               maxLines: 1,
                               textOverflow: TextOverflow.ellipsis,
                             ),
@@ -725,160 +735,6 @@ class DrawRoundCard extends StatelessWidget {
   }
 }
 
-/// Terms and conditions, taken from the Equb group.
-///
-/// They can run long, so the text scrolls inside a fixed box with a visible
-/// thumb and a fade at the bottom edge — the page itself stays short enough
-/// that the action button is always within reach.
-class TermsCard extends StatefulWidget {
-  final String terms;
-  final String footnote;
-
-  const TermsCard({
-    super.key,
-    required this.terms,
-    this.footnote = 'Continuing means you accept these terms.',
-  });
-
-  @override
-  State<TermsCard> createState() => _TermsCardState();
-}
-
-class _TermsCardState extends State<TermsCard> {
-  final _controller = ScrollController();
-  bool _atBottom = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller.addListener(_onScroll);
-  }
-
-  void _onScroll() {
-    if (!_controller.hasClients) return;
-
-    final atEnd = _controller.offset >= _controller.position.maxScrollExtent - 8;
-    if (atEnd != _atBottom) setState(() => _atBottom = atEnd);
-  }
-
-  @override
-  void dispose() {
-    _controller
-      ..removeListener(_onScroll)
-      ..dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
-    final surface = appColors.accentColor ?? Colors.white;
-
-    return Container(
-      decoration: BoxDecoration(
-        color: surface,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: (appColors.borderColor ?? AppStaticColor.borderLight).withValues(alpha: 0.7),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 10.h),
-            child: Row(
-              children: [
-                Icon(Icons.description_outlined, size: 16.r, color: primary),
-                SizedBox(width: 8.w),
-                Expanded(
-                  child: CustomText(
-                    title: 'Terms and conditions'.tr,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w700,
-                    textColor: appColors.titleTextColor,
-                  ),
-                ),
-                if (!_atBottom)
-                  Row(
-                    children: [
-                      CustomText(
-                        title: 'Scroll'.tr,
-                        fontSize: 10.sp,
-                        fontWeight: FontWeight.w500,
-                        textColor: appColors.hintTextColor,
-                      ),
-                      SizedBox(width: 2.w),
-                      Icon(Icons.keyboard_arrow_down_rounded,
-                          size: 14.r, color: appColors.hintTextColor),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-          Divider(
-            height: 1,
-            color: (appColors.borderColor ?? AppStaticColor.borderLight).withValues(alpha: 0.6),
-          ),
-          Stack(
-            children: [
-              ConstrainedBox(
-                constraints: BoxConstraints(maxHeight: 260.h),
-                child: Scrollbar(
-                  controller: _controller,
-                  thumbVisibility: true,
-                  child: SingleChildScrollView(
-                    controller: _controller,
-                    padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 18.h),
-                    child: CustomText(
-                      title: widget.terms,
-                      fontSize: 12.sp,
-                      fontWeight: FontWeight.w400,
-                      textColor: appColors.bodyTextColor,
-                    ),
-                  ),
-                ),
-              ),
-              // Fades the last line so it reads as "there is more below".
-              if (!_atBottom)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  child: IgnorePointer(
-                    child: Container(
-                      height: 28.h,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [surface.withValues(alpha: 0), surface],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          Divider(
-            height: 1,
-            color: (appColors.borderColor ?? AppStaticColor.borderLight).withValues(alpha: 0.6),
-          ),
-          Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 10.h, 16.w, 14.h),
-            child: CustomText(
-              title: widget.footnote,
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w500,
-              textColor: appColors.bodyTextSmallColor,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 /// Shared empty state: says what is missing and what to do about it.
 class GroupEmptyState extends StatelessWidget {

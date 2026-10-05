@@ -101,7 +101,7 @@ class _EkubPackagesScreenState extends State<EkubPackagesScreen> {
                         const SliverToBoxAdapter(child: _NoPackages())
                       else
                         SliverPadding(
-                          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 28.h),
+                          padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 0),
                           sliver: SliverList.separated(
                             itemCount: packages.length,
                             separatorBuilder: (_, _) => SizedBox(height: 12.h),
@@ -114,6 +114,28 @@ class _EkubPackagesScreenState extends State<EkubPackagesScreen> {
                                     : () => PackageDetailScreen.open(context, p),
                               );
                             },
+                          ),
+                        ),
+
+                      // Group Equb, as the last row of the list.
+                      //
+                      // Shown in every state except loading - including when
+                      // there are no packages at all, where it is the only way
+                      // forward rather than a dead end.
+                      if (!isLoading)
+                        SliverToBoxAdapter(
+                          child: Padding(
+                            padding: EdgeInsets.fromLTRB(
+                              16.w,
+                              packages.isEmpty ? 0 : 12.h,
+                              16.w,
+                              28.h,
+                            ),
+                            child: _GroupEqubTile(
+                              onTap: () => context.navigateOnce(
+                                () => Get.to(() => const MyGroupsScreen()),
+                              ),
+                            ),
                           ),
                         ),
                     ],
@@ -389,6 +411,115 @@ class _PackageTile extends StatelessWidget {
                         ],
                       ),
                     ],
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: inkSoft, size: 26.sp),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Group Equb, offered as the last row of the package list.
+///
+/// WHY IT IS HERE AS WELL AS IN THE HEADER
+///
+/// Someone on this screen is choosing what KIND of Equb to join, and starting
+/// one with their own family or friends is one of those choices. Until now it
+/// was reachable only from a small pill above the logo, which reads as a
+/// utility - a settings affordance - rather than an option on the menu. Most
+/// people scanning a list of packages never look up there.
+///
+/// The pill stays. Anyone who already knows where it is keeps their shortcut,
+/// and it is the faster route once you do. This is the same destination
+/// presented as what it actually is, in the place people are already reading.
+///
+/// Built from the same parts as _PackageTile on purpose - same badge, same
+/// divider, same gold border, same chevron - because it belongs to that list.
+/// A differently shaped card here would read as an advertisement for itself.
+class _GroupEqubTile extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _GroupEqubTile({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final ink = isDark ? Colors.white : NiyaPalette.ink;
+    final inkSoft = isDark ? Colors.white70 : NiyaPalette.inkSoft;
+    final radius = BorderRadius.circular(16.r);
+
+    return Material(
+      color: isDark ? NiyaPalette.navySoft : Colors.white,
+      elevation: 3,
+      shadowColor: Colors.black.withValues(alpha: 0.5),
+      borderRadius: radius,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: radius,
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: radius,
+            border: Border.all(color: NiyaPalette.gold.withValues(alpha: 0.35)),
+          ),
+          padding: EdgeInsets.fromLTRB(10.w, 12.h, 8.w, 12.h),
+          child: Row(
+            children: [
+              NiyaStarBadge(
+                size: 60.r,
+                child: Icon(
+                  Icons.groups_rounded,
+                  size: 26.r,
+                  color: NiyaPalette.maroon,
+                ),
+              ),
+              SizedBox(width: 10.w),
+              Container(
+                width: 1.4,
+                height: 46.h,
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Color(0x00C9A24A),
+                      NiyaPalette.gold,
+                      Color(0x00C9A24A),
+                    ],
+                  ),
+                ),
+              ),
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'group_equb'.tr,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: ink,
+                        fontSize: 18.sp,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 4.h),
+                    Text(
+                      'Pick a package, invite your family or friends, and run your own draws.'
+                          .tr,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: inkSoft,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                        height: 1.3,
+                      ),
+                    ),
                   ],
                 ),
               ),

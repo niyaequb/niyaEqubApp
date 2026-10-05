@@ -26,7 +26,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 #
 # Bump this on every build you hand out, without exception. A tester on an
 # unknown version is a bug report you cannot act on.
-version: 1.0.1+26
+version: 1.0.1+27
 environment:
   sdk: ^3.10.7
 

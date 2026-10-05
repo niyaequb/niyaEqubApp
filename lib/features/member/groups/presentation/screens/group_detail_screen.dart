@@ -3,8 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:niya_equb/core/config/app_color.dart';
-import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/core/init/injections.dart';
 import 'package:niya_equb/core/service/snack_bar.dart';
 import 'package:niya_equb/core/util/refresh_signal.dart';
@@ -12,18 +10,21 @@ import 'package:niya_equb/features/member/groups/data/repository/group_equb_repo
 import 'package:niya_equb/features/member/groups/presentation/screens/invite_members_screen.dart';
 import 'package:niya_equb/features/member/groups/presentation/screens/responsibility_people_screen.dart';
 import 'package:niya_equb/features/member/groups/presentation/widgets/group_ledger_widgets.dart';
-import 'package:niya_equb/features/member/groups/presentation/widgets/responsibility_widgets.dart';
 import 'package:niya_equb/features/member/groups/state/group_detail_bloc.dart';
 import 'package:niya_equb/features/member/groups/state/group_detail_event.dart';
 import 'package:niya_equb/features/member/groups/state/group_detail_state.dart';
-import 'package:niya_equb/shared/widgets/custom_text.dart';
-import 'package:niya_equb/shared/widgets/rounded_button.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_night_theme.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 import 'package:niya_equb/shared/widgets/skeleton.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// One group Equb: contributions at a glance, who has paid, and the rounds
 /// that have been drawn. Winner selection is an admin-only concern, so no
 /// draw controls appear on this screen.
+///
+/// The night theme is outermost — above the BlocProvider — so that the dialogs
+/// and sheets this screen opens from its State's own context inherit it. See
+/// the note on CreateGroupScreen.
 class GroupDetailScreen extends StatelessWidget {
   static const String routeName = '/equb-group-detail';
 
@@ -33,9 +34,12 @@ class GroupDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (_) => sl<GroupDetailBloc>()..add(GroupDetailLoadEvent(groupId: groupId)),
-      child: _GroupDetailView(groupId: groupId),
+    return NiyaNightTheme(
+      child: BlocProvider(
+        create: (_) =>
+            sl<GroupDetailBloc>()..add(GroupDetailLoadEvent(groupId: groupId)),
+        child: _GroupDetailView(groupId: groupId),
+      ),
     );
   }
 }
@@ -49,21 +53,25 @@ class _GroupDetailView extends StatefulWidget {
   State<_GroupDetailView> createState() => _GroupDetailViewState();
 }
 
-class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerProviderStateMixin {
+class _GroupDetailViewState extends State<_GroupDetailView>
+    with SingleTickerProviderStateMixin {
   late final TabController _tabs = TabController(length: 3, vsync: this);
   int _memberFilter = 0; // 0 all · 1 unpaid · 2 paid · 3 my responsibility
+
+  static const Color _danger = Color(0xFFF87171);
+  static const Color _warn = Color(0xFFFBBF24);
 
   /// Every tab reloads the same three endpoints, and the indicator now waits
   /// for them instead of completing the moment the event is added.
   Future<void> _reload(BuildContext context) {
     return refreshWith(
       (signal) => context.read<GroupDetailBloc>().add(
-            GroupDetailLoadEvent(
-              groupId: widget.groupId,
-              isSilent: true,
-              signal: signal,
-            ),
-          ),
+        GroupDetailLoadEvent(
+          groupId: widget.groupId,
+          isSilent: true,
+          signal: signal,
+        ),
+      ),
     );
   }
 
@@ -71,7 +79,8 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
   /// down — these used to sit outside any RefreshIndicator.
   Widget _refreshable(BuildContext context, Widget child) {
     return RefreshIndicator(
-      color: colors(context).primaryColor,
+      color: NiyaPalette.gold,
+      backgroundColor: NiyaPalette.navy,
       onRefresh: () => _reload(context),
       child: LayoutBuilder(
         builder: (context, constraints) => ListView(
@@ -130,97 +139,125 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
 
   @override
   Widget build(BuildContext context) {
-    final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
-
     return Scaffold(
-      backgroundColor: appColors.scaffoldBackgroundColor,
-      body: BlocConsumer<GroupDetailBloc, GroupDetailState>(
-        listenWhen: (prev, next) => next is GroupDetailReady && next.actionMessage != null,
-        listener: (context, state) {
-          // The screen can be popped while a silent reload is still in flight;
-          // touching a dead context is what throws "deactivated widget's
-          // ancestor is unsafe".
-          if (!context.mounted) return;
+      backgroundColor: NiyaPalette.navyDeep,
+      body: Stack(
+        children: [
+          const Positioned.fill(child: NiyaNightBackdrop()),
+          BlocConsumer<GroupDetailBloc, GroupDetailState>(
+            listenWhen: (prev, next) =>
+                next is GroupDetailReady && next.actionMessage != null,
+            listener: (context, state) {
+              // The screen can be popped while a silent reload is still in
+              // flight; touching a dead context is what throws "deactivated
+              // widget's ancestor is unsafe".
+              if (!context.mounted) return;
 
-          final message = (state as GroupDetailReady).actionMessage!;
-          showSuccessSnackBar(context, message);
-        },
-        builder: (context, state) {
-          if (state is GroupDetailLoading) {
-            return _loadingSkeleton(context);
-          }
+              final message = (state as GroupDetailReady).actionMessage!;
+              showSuccessSnackBar(context, message);
+            },
+            builder: (context, state) {
+              if (state is GroupDetailLoading) {
+                return _loadingSkeleton(context);
+              }
 
-          if (state is GroupDetailFailure) {
-            return SafeArea(
-              child: GroupEmptyState(
-                icon: Icons.cloud_off_rounded,
-                title: 'could_not_open_equb'.tr,
-                body: state.failure.errorMessage,
-                action: RoundedButton(
-                  label: 'try_again'.tr,
-                  width: 160.w,
-                  backgroundColor: primary,
-                  onPressed: () => context
-                      .read<GroupDetailBloc>()
-                      .add(GroupDetailLoadEvent(groupId: widget.groupId)),
-                ),
-              ),
-            );
-          }
-
-          final data = state as GroupDetailReady;
-          final group = data.group;
-
-          return NestedScrollView(
-            headerSliverBuilder: (context, _) => [
-              SliverAppBar(
-                pinned: true,
-                backgroundColor: appColors.scaffoldBackgroundColor,
-                elevation: 0,
-                title: CustomText(
-                  title: group.name,
-                  fontSize: 15.sp,
-                  fontWeight: FontWeight.w700,
-                  textColor: appColors.titleTextColor,
-                  maxLines: 1,
-                  textOverflow: TextOverflow.ellipsis,
-                ),
-                actions: [
-                  if (group.inviteCode != null && group.isDraftStage)
-                    IconButton(
-                      tooltip: 'share_invite_code'.tr,
-                      onPressed: () => Share.share(
-                        '${'share_invite_message'.tr} ${group.name}. '
-                        '${'invite_code'.tr}: ${group.inviteCode}',
+              if (state is GroupDetailFailure) {
+                return SafeArea(
+                  child: Center(
+                    child: SingleChildScrollView(
+                      child: NiyaEmptyState(
+                        icon: Icons.cloud_off_rounded,
+                        title: 'could_not_open_equb'.tr,
+                        body: state.failure.errorMessage,
+                        actionLabel: 'try_again'.tr,
+                        actionIcon: Icons.refresh_rounded,
+                        onAction: () => context.read<GroupDetailBloc>().add(
+                          GroupDetailLoadEvent(groupId: widget.groupId),
+                        ),
                       ),
-                      icon: Icon(Icons.ios_share_rounded, size: 18.r, color: primary),
                     ),
+                  ),
+                );
+              }
+
+              final data = state as GroupDetailReady;
+              final group = data.group;
+
+              return NestedScrollView(
+                headerSliverBuilder: (context, _) => [
+                  SliverAppBar(
+                    pinned: true,
+                    // Solid rather than transparent: the tab strip below it is
+                    // a toolbar, and rows of members scrolling through the
+                    // star lattice behind a see-through bar is unreadable.
+                    backgroundColor: NiyaPalette.navyDeep,
+                    surfaceTintColor: Colors.transparent,
+                    elevation: 0,
+                    scrolledUnderElevation: 0,
+                    iconTheme: IconThemeData(
+                      color: NiyaPalette.goldLight,
+                      size: 21.r,
+                    ),
+                    title: Text(
+                      group.name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15.5.sp,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    actions: [
+                      if (group.inviteCode != null && group.isDraftStage)
+                        IconButton(
+                          tooltip: 'share_invite_code'.tr,
+                          onPressed: () => Share.share(
+                            '${'share_invite_message'.tr} ${group.name}. '
+                            '${'invite_code'.tr}: ${group.inviteCode}',
+                          ),
+                          icon: Icon(
+                            Icons.ios_share_rounded,
+                            size: 18.r,
+                            color: NiyaPalette.goldLight,
+                          ),
+                        ),
+                    ],
+                    bottom: TabBar(
+                      controller: _tabs,
+                      labelColor: NiyaPalette.goldLight,
+                      unselectedLabelColor: Colors.white60,
+                      indicatorColor: NiyaPalette.gold,
+                      indicatorWeight: 2.5,
+                      dividerColor: NiyaPalette.gold.withValues(alpha: 0.25),
+                      labelStyle: TextStyle(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w800,
+                      ),
+                      unselectedLabelStyle: TextStyle(
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      tabs: [
+                        Tab(text: 'overview'.tr),
+                        Tab(text: 'members'.tr),
+                        Tab(text: 'rounds'.tr),
+                      ],
+                    ),
+                  ),
                 ],
-                bottom: TabBar(
+                body: TabBarView(
                   controller: _tabs,
-                  labelColor: primary,
-                  unselectedLabelColor: appColors.bodyTextSmallColor,
-                  indicatorColor: primary,
-                  labelStyle: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600),
-                  tabs: [
-                    Tab(text: 'overview'.tr),
-                    Tab(text: 'members'.tr),
-                    Tab(text: 'rounds'.tr),
+                  children: [
+                    _overviewTab(context, data),
+                    _membersTab(context, data),
+                    _roundsTab(context, data),
                   ],
                 ),
-              ),
-            ],
-            body: TabBarView(
-              controller: _tabs,
-              children: [
-                _overviewTab(context, data),
-                _membersTab(context, data),
-                _roundsTab(context, data),
-              ],
-            ),
-          );
-        },
+              );
+            },
+          ),
+        ],
       ),
     );
   }
@@ -230,39 +267,38 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
   // ------------------------------------------------------------------
 
   Widget _overviewTab(BuildContext context, GroupDetailReady data) {
-    final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
     final group = data.group;
     final totals = data.ledger.totals;
 
     return RefreshIndicator(
-      color: primary,
+      color: NiyaPalette.gold,
+      backgroundColor: NiyaPalette.navy,
       onRefresh: () => _reload(context),
       child: ListView(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 32.h),
         children: [
           if (group.isPendingApproval)
             _notice(
-              context,
               icon: Icons.hourglass_top_rounded,
-              color: const Color(0xFFD97706),
+              color: _warn,
               text: 'awaiting_approval'.tr,
             ),
           if (group.isRejected && group.rejectionReason != null)
             _notice(
-              context,
               icon: Icons.error_outline_rounded,
-              color: const Color(0xFFDC2626),
+              color: _danger,
               text: group.rejectionReason!,
             ),
 
           LedgerSummaryCard(
             totals: totals,
             onRemindTap: group.isOwner
-                ? () => context
-                    .read<GroupDetailBloc>()
-                    .add(GroupRemindUnpaidEvent(groupId: widget.groupId))
+                ? () => context.read<GroupDetailBloc>().add(
+                    GroupRemindUnpaidEvent(groupId: widget.groupId),
+                  )
                 : null,
           ),
           SizedBox(height: 14.h),
@@ -272,8 +308,13 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
             plan: data.splitPlan?.plan ?? group.splitPlan,
             cursor: group.splitPlanCursor,
           ),
-          SizedBox(height: 14.h),
+          SizedBox(height: 18.h),
 
+          NiyaSectionLabel(
+            label: 'overview'.tr,
+            icon: Icons.fact_check_rounded,
+          ),
+          SizedBox(height: 10.h),
           _factsCard(context, group, totals),
 
           // Open to any member the group lets bring people in, not just the
@@ -285,32 +326,37 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
           ],
 
           if (group.isOwner) ...[
-            SizedBox(height: 18.h),
-            RoundedButton(
+            SizedBox(height: 20.h),
+            NiyaGoldButton(
               label: 'invite_members'.tr,
+              icon: Icons.person_add_alt_1_rounded,
               height: 46.h,
-              backgroundColor: appColors.primaryColor,
-              foregroundColor: Colors.white,
-              borderSide: BorderSide(color: primary),
-              icon: Icon(Icons.person_add_alt_1_outlined, size: 16.r, color: Colors.white),
+              fontSize: 14.sp,
               onPressed: () async {
+                final bloc = context.read<GroupDetailBloc>();
                 final sent = await Get.to(
-                  () => InviteMembersScreen(groupId: group.id, inviteCode: group.inviteCode),
+                  () => InviteMembersScreen(
+                    groupId: group.id,
+                    inviteCode: group.inviteCode,
+                  ),
                 );
-                if (sent == true && context.mounted) {
-                  context
-                      .read<GroupDetailBloc>()
-                      .add(GroupDetailLoadEvent(groupId: widget.groupId, isSilent: true));
+                if (sent == true) {
+                  bloc.add(
+                    GroupDetailLoadEvent(
+                      groupId: widget.groupId,
+                      isSilent: true,
+                    ),
+                  );
                 }
               },
             ),
-            SizedBox(height: 12.h),
+            SizedBox(height: 14.h),
             // Draws are run by Niya from the admin panel, never from the app.
             _notice(
-              context,
-              icon: Icons.casino_outlined,
-              color: primary,
+              icon: Icons.casino_rounded,
+              color: NiyaPalette.goldLight,
               text: 'draws_run_by_admin'.tr,
+              bottomMargin: false,
             ),
           ],
         ],
@@ -318,9 +364,11 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
     );
   }
 
-  Widget _factsCard(BuildContext context, EqubCircle group, LedgerTotals totals) {
-    final appColors = colors(context);
-
+  Widget _factsCard(
+    BuildContext context,
+    EqubCircle group,
+    LedgerTotals totals,
+  ) {
     // A group with no cap set comes back as max_members = 0, and "2 / 0" reads
     // as a broken figure rather than "no limit". Show the head count alone.
     final memberCount = group.maxMembers > 0
@@ -330,7 +378,7 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
     final rows = <(String, String)>[
       (
         'contribution'.tr,
-        '${etb(group.contributionAmount)} ${'every'.tr} ${group.contributionFrequencyDays} ${'days'.tr}'
+        '${etb(group.contributionAmount)} ${'every'.tr} ${group.contributionFrequencyDays} ${'days'.tr}',
       ),
       ('pot_per_round'.tr, etb(totals.roundTotal)),
       ('members'.tr, memberCount),
@@ -347,45 +395,48 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
       if (group.endDate != null)
         ('ends'.tr, DateFormat('d MMM yyyy').format(group.endDate!)),
       if (group.ownerName != null) ('created_by'.tr, group.ownerName!),
-      if (group.drawRequiresUpToDate) ('draw_rule'.tr, 'draw_rule_up_to_date'.tr),
+      if (group.drawRequiresUpToDate)
+        ('draw_rule'.tr, 'draw_rule_up_to_date'.tr),
     ];
 
-    return Container(
-      padding: EdgeInsets.all(16.r),
-      decoration: BoxDecoration(
-        color: appColors.accentColor,
-        borderRadius: BorderRadius.circular(16.r),
-        border: Border.all(
-          color: (appColors.borderColor ?? AppStaticColor.borderLight).withValues(alpha: 0.5),
-        ),
-      ),
+    return NiyaCard(
+      padding: EdgeInsets.fromLTRB(14.w, 14.h, 14.w, 6.h),
       child: Column(
         children: rows
-            .map((r) => Padding(
-                  padding: EdgeInsets.only(bottom: 10.h),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      SizedBox(
-                        width: 110.w,
-                        child: CustomText(
-                          title: r.$1,
+            .map(
+              (r) => Padding(
+                padding: EdgeInsets.only(bottom: 10.h),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 108.w,
+                      child: Text(
+                        r.$1,
+                        style: TextStyle(
+                          color: Colors.white70,
                           fontSize: 11.5.sp,
-                          fontWeight: FontWeight.w400,
-                          textColor: appColors.bodyTextSmallColor,
+                          fontWeight: FontWeight.w500,
+                          height: 1.3,
                         ),
                       ),
-                      Expanded(
-                        child: CustomText(
-                          title: r.$2,
+                    ),
+                    SizedBox(width: 8.w),
+                    Expanded(
+                      child: Text(
+                        r.$2,
+                        style: TextStyle(
+                          color: Colors.white,
                           fontSize: 11.5.sp,
-                          fontWeight: FontWeight.w600,
-                          textColor: appColors.titleTextColor,
+                          fontWeight: FontWeight.w700,
+                          height: 1.3,
                         ),
                       ),
-                    ],
-                  ),
-                ))
+                    ),
+                  ],
+                ),
+              ),
+            )
             .toList(),
       ),
     );
@@ -397,84 +448,107 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
   /// is money: each one is a contribution this member owes every round, and it
   /// should not take a tap to find out how many there are.
   Widget _responsibilityCard(BuildContext context, EqubCircle group) {
-    final appColors = colors(context);
+    final tint = responsibilityTint(context);
     final mine = group.myResponsibilitySeatsCount;
     final total = group.responsibilitySeatsCount;
 
-    return InkWell(
-      onTap: () => _openResponsibilityPeople(context, group),
-      borderRadius: BorderRadius.circular(16.r),
-      child: Container(
-        padding: EdgeInsets.all(14.r),
-        decoration: BoxDecoration(
-          color: kResponsibilityTint.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(16.r),
-          border: Border.all(color: kResponsibilityTint.withValues(alpha: 0.22)),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: EdgeInsets.all(9.r),
-              decoration: BoxDecoration(
-                color: kResponsibilityTint.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(11.r),
-              ),
-              child: Icon(Icons.volunteer_activism_outlined,
-                  size: 17.r, color: kResponsibilityTint),
-            ),
-            SizedBox(width: 12.w),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  CustomText(
-                    title: 'my_responsibility_people'.tr,
-                    fontSize: 13.sp,
-                    fontWeight: FontWeight.w700,
-                    textColor: appColors.titleTextColor,
-                  ),
-                  SizedBox(height: 3.h),
-                  CustomText(
-                    title: mine > 0
-                        ? 'responsibility_you_carry'.trParams({'count': '$mine'})
-                        : 'responsibility_card_empty'.tr,
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w400,
-                    textColor: appColors.bodyTextSmallColor,
-                    maxLines: 2,
-                  ),
-                  // Only the creator is sent the whole circle's places, so
-                  // this line only ever has something to say for them.
-                  if (group.isOwner && total > mine) ...[
-                    SizedBox(height: 2.h),
-                    CustomText(
-                      title: 'responsibility_in_circle'.trParams({'count': '$total'}),
-                      fontSize: 10.sp,
-                      fontWeight: FontWeight.w400,
-                      textColor: appColors.hintTextColor,
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            if (mine > 0)
-              Padding(
-                padding: EdgeInsets.only(right: 6.w),
-                child: CustomText(
-                  title: '$mine',
-                  fontSize: 17.sp,
-                  fontWeight: FontWeight.w800,
-                  textColor: kResponsibilityTint,
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: () => _openResponsibilityPeople(context, group),
+        borderRadius: BorderRadius.circular(16.r),
+        child: Container(
+          padding: EdgeInsets.all(14.r),
+          decoration: BoxDecoration(
+            color: tint.withValues(alpha: 0.16),
+            borderRadius: BorderRadius.circular(16.r),
+            border: Border.all(color: tint.withValues(alpha: 0.45)),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(9.r),
+                decoration: BoxDecoration(
+                  color: tint.withValues(alpha: 0.22),
+                  borderRadius: BorderRadius.circular(11.r),
+                ),
+                child: Icon(
+                  Icons.volunteer_activism_rounded,
+                  size: 17.r,
+                  color: tint,
                 ),
               ),
-            Icon(Icons.chevron_right_rounded, size: 20.r, color: kResponsibilityTint),
-          ],
+              SizedBox(width: 12.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'my_responsibility_people'.tr,
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    SizedBox(height: 3.h),
+                    Text(
+                      mine > 0
+                          ? 'responsibility_you_carry'.trParams({
+                              'count': '$mine',
+                            })
+                          : 'responsibility_card_empty'.tr,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: Colors.white70,
+                        fontSize: 11.sp,
+                        fontWeight: FontWeight.w500,
+                        height: 1.3,
+                      ),
+                    ),
+                    // Only the creator is sent the whole circle's places, so
+                    // this line only ever has something to say for them.
+                    if (group.isOwner && total > mine) ...[
+                      SizedBox(height: 2.h),
+                      Text(
+                        'responsibility_in_circle'.trParams({
+                          'count': '$total',
+                        }),
+                        style: TextStyle(
+                          color: Colors.white54,
+                          fontSize: 10.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (mine > 0)
+                Padding(
+                  padding: EdgeInsets.only(right: 6.w),
+                  child: Text(
+                    '$mine',
+                    style: TextStyle(
+                      color: tint,
+                      fontSize: 17.sp,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              Icon(Icons.chevron_right_rounded, size: 20.r, color: tint),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Future<void> _openResponsibilityPeople(BuildContext context, EqubCircle group) async {
+  Future<void> _openResponsibilityPeople(
+    BuildContext context,
+    EqubCircle group,
+  ) async {
     final bloc = context.read<GroupDetailBloc>();
 
     final changed = await Get.to(
@@ -492,15 +566,19 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
     }
   }
 
-  Widget _notice(BuildContext context,
-      {required IconData icon, required Color color, required String text}) {
+  Widget _notice({
+    required IconData icon,
+    required Color color,
+    required String text,
+    bool bottomMargin = true,
+  }) {
     return Container(
-      margin: EdgeInsets.only(bottom: 14.h),
+      margin: EdgeInsets.only(bottom: bottomMargin ? 14.h : 0),
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.09),
+        color: color.withValues(alpha: 0.16),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
+        border: Border.all(color: color.withValues(alpha: 0.45)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -508,11 +586,14 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
           Icon(icon, size: 15.r, color: color),
           SizedBox(width: 8.w),
           Expanded(
-            child: CustomText(
-              title: text,
-              fontSize: 11.sp,
-              fontWeight: FontWeight.w500,
-              textColor: color,
+            child: Text(
+              text,
+              style: TextStyle(
+                color: color,
+                fontSize: 11.sp,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
             ),
           ),
         ],
@@ -525,13 +606,14 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
   // ------------------------------------------------------------------
 
   Widget _membersTab(BuildContext context, GroupDetailReady data) {
-    final appColors = colors(context);
     final all = data.ledger.members;
 
     // Places held for someone with no Niya account sit in this same list — they
     // pay in and can win like anyone else — but they are worth being able to
     // isolate, because they are the rows the caller may owe money on.
-    final seats = all.where((m) => m.isResponsibilitySeat).toList(growable: false);
+    final seats = all
+        .where((m) => m.isResponsibilitySeat)
+        .toList(growable: false);
 
     final list = switch (_memberFilter) {
       1 => data.ledger.behind,
@@ -563,7 +645,7 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
                     3,
                     'responsibility_filter'.tr,
                     seats.length,
-                    tint: kResponsibilityTint,
+                    tint: responsibilityTint(context),
                   ),
                 ],
               ],
@@ -574,21 +656,26 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
           child: list.isEmpty
               ? _refreshable(
                   context,
-                  GroupEmptyState(
+                  NiyaEmptyState(
                     icon: _memberFilter == 1
-                        ? Icons.check_circle_outline_rounded
-                        : Icons.people_outline_rounded,
-                    title: _memberFilter == 1 ? 'everyone_up_to_date'.tr : 'no_members_yet'.tr,
+                        ? Icons.check_circle_rounded
+                        : Icons.people_rounded,
+                    title: _memberFilter == 1
+                        ? 'everyone_up_to_date'.tr
+                        : 'no_members_yet'.tr,
                     body: _memberFilter == 1
                         ? 'nobody_owes_now'.tr
                         : 'invite_to_fill_circle'.tr,
                   ),
                 )
               : RefreshIndicator(
-                  color: appColors.primaryColor,
+                  color: NiyaPalette.gold,
+                  backgroundColor: NiyaPalette.navy,
                   onRefresh: () => _reload(context),
                   child: ListView.builder(
-                    physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+                    physics: const AlwaysScrollableScrollPhysics(
+                      parent: BouncingScrollPhysics(),
+                    ),
                     padding: EdgeInsets.fromLTRB(16.w, 6.h, 16.w, 30.h),
                     itemCount: list.length,
                     itemBuilder: (context, i) {
@@ -607,25 +694,25 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
 
                       return MemberLedgerTile(
                         member: m,
-                        onRemove: canRemove ? () => _confirmRemove(context, m) : null,
+                        onRemove: canRemove
+                            ? () => _confirmRemove(context, m)
+                            : null,
                       );
                     },
                   ),
                 ),
         ),
         if (data.ledger.behind.isNotEmpty && data.group.isOwner)
-          Padding(
-            padding: EdgeInsets.fromLTRB(16.w, 0, 16.w, 16.h),
-            child: RoundedButton(
+          NiyaBottomBar(
+            child: NiyaGoldButton(
               label: 'remind_everyone_who_owes'.tr,
-              height: 44.h,
-              submitting: data.isBusy,
-              backgroundColor: appColors.primaryColor,
-              foregroundColor: Colors.white,
-              icon: Icon(Icons.notifications_active_outlined, size: 15.r, color: Colors.white),
-              onPressed: () => context
-                  .read<GroupDetailBloc>()
-                  .add(GroupRemindUnpaidEvent(groupId: widget.groupId)),
+              icon: Icons.notifications_active_rounded,
+              busy: data.isBusy,
+              height: 46.h,
+              fontSize: 14.sp,
+              onPressed: () => context.read<GroupDetailBloc>().add(
+                GroupRemindUnpaidEvent(groupId: widget.groupId),
+              ),
             ),
           ),
       ],
@@ -639,29 +726,35 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
     int count, {
     Color? tint,
   }) {
-    final appColors = colors(context);
-    final primary = tint ?? appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    final colour = tint ?? NiyaPalette.goldLight;
     final selected = _memberFilter == index;
 
-    return InkWell(
-      onTap: () => setState(() => _memberFilter = index),
-      borderRadius: BorderRadius.circular(10.r),
-      child: Container(
-        padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 7.h),
-        decoration: BoxDecoration(
-          color: selected ? primary.withValues(alpha: 0.14) : Colors.transparent,
-          borderRadius: BorderRadius.circular(10.r),
-          border: Border.all(
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: () => setState(() => _memberFilter = index),
+        borderRadius: BorderRadius.circular(999),
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 7.h),
+          decoration: BoxDecoration(
             color: selected
-                ? primary.withValues(alpha: 0.5)
-                : (appColors.borderColor ?? AppStaticColor.borderLight),
+                ? colour.withValues(alpha: 0.2)
+                : Colors.white.withValues(alpha: 0.04),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? colour.withValues(alpha: 0.7)
+                  : Colors.white24,
+            ),
           ),
-        ),
-        child: CustomText(
-          title: '$label ($count)',
-          fontSize: 11.sp,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
-          textColor: selected ? primary : appColors.bodyTextSmallColor,
+          child: Text(
+            '$label ($count)',
+            style: TextStyle(
+              color: selected ? colour : Colors.white70,
+              fontSize: 11.sp,
+              fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+            ),
+          ),
         ),
       ),
     );
@@ -675,19 +768,24 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
     if (data.draws.isEmpty) {
       return _refreshable(
         context,
-        GroupEmptyState(
-          icon: Icons.emoji_events_outlined,
+        NiyaEmptyState(
+          icon: Icons.emoji_events_rounded,
           title: 'no_rounds_yet'.tr,
-          body: data.group.isRunning ? 'draws_run_by_admin'.tr : 'winners_appear_here'.tr,
+          body: data.group.isRunning
+              ? 'draws_run_by_admin'.tr
+              : 'winners_appear_here'.tr,
         ),
       );
     }
 
     return RefreshIndicator(
-      color: colors(context).primaryColor,
+      color: NiyaPalette.gold,
+      backgroundColor: NiyaPalette.navy,
       onRefresh: () => _reload(context),
       child: ListView.builder(
-        physics: const AlwaysScrollableScrollPhysics(parent: BouncingScrollPhysics()),
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
         padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 30.h),
         itemCount: data.draws.length,
         itemBuilder: (context, i) => DrawRoundCard(draw: data.draws[i]),
@@ -705,35 +803,57 @@ class _GroupDetailViewState extends State<_GroupDetailView> with SingleTickerPro
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: CustomText(title: '${'remove'.tr} ${member.name}?', fontSize: 15.sp),
-        content: CustomText(
+        backgroundColor: NiyaPalette.navySoft,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.r),
+          side: BorderSide(color: NiyaPalette.gold.withValues(alpha: 0.45)),
+        ),
+        title: Text(
+          '${'remove'.tr} ${member.name}?',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 15.sp,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        content: Text(
           // A place held for someone else is not "a member leaving" — nobody is
           // being told anything and no invitation is being withdrawn, so the
           // member wording would be wrong.
-          title: member.isResponsibilitySeat
+          member.isResponsibilitySeat
               ? 'remove_responsibility_person_body'.tr
               : 'remove_member_body'.tr,
-          fontSize: 12.sp,
-          fontWeight: FontWeight.w400,
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 12.sp,
+            fontWeight: FontWeight.w500,
+            height: 1.4,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: Text('cancel'.tr),
+            child: Text(
+              'cancel'.tr,
+              style: const TextStyle(color: Colors.white70),
+            ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('remove'.tr),
+            child: Text('remove'.tr, style: const TextStyle(color: _danger)),
           ),
         ],
       ),
     );
 
     if (ok == true) {
-      bloc.add(GroupRemoveMemberEvent(
-        groupId: widget.groupId,
-        membershipId: member.membershipId,
-      ));
+      bloc.add(
+        GroupRemoveMemberEvent(
+          groupId: widget.groupId,
+          membershipId: member.membershipId,
+        ),
+      );
     }
   }
 }

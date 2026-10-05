@@ -18,7 +18,7 @@ import 'package:niya_equb/shared/widgets/rounded_button.dart';
 /// adds a name, because a name typed in a text field does not look like a
 /// financial commitment until it is spelled out as one.
 
-// kResponsibilityTint lives in group_ledger_widgets.dart, which the members
+// responsibilityTint() lives in group_ledger_widgets.dart, which the members
 // ledger also needs it from. Imported above rather than redeclared here so the
 // two can never drift to different purples.
 
@@ -44,7 +44,7 @@ class ResponsibilityBadge extends StatelessWidget {
 
     return StatusPill(
       label: label,
-      color: kResponsibilityTint,
+      color: responsibilityTint(context),
       icon: Icons.volunteer_activism_outlined,
     );
   }
@@ -92,7 +92,7 @@ class ResponsibilityPersonTile extends StatelessWidget {
         children: [
           Row(
             children: [
-              _avatar(),
+              _avatar(context),
               SizedBox(width: 10.w),
               Expanded(
                 child: Column(
@@ -184,7 +184,7 @@ class ResponsibilityPersonTile extends StatelessWidget {
     );
   }
 
-  Widget _avatar() {
+  Widget _avatar(BuildContext context) {
     final initials = person.name.trim().isEmpty
         ? '?'
         : person.name.trim().split(RegExp(r'\s+')).take(2).map((p) => p[0].toUpperCase()).join();
@@ -194,14 +194,14 @@ class ResponsibilityPersonTile extends StatelessWidget {
       height: 36.r,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: kResponsibilityTint.withValues(alpha: 0.12),
+        color: responsibilityTint(context).withValues(alpha: 0.12),
       ),
       alignment: Alignment.center,
       child: CustomText(
         title: initials,
         fontSize: 12.sp,
         fontWeight: FontWeight.w700,
-        textColor: kResponsibilityTint,
+        textColor: responsibilityTint(context),
       ),
     );
   }
@@ -231,18 +231,22 @@ class ResponsibilityExplainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = colors(context);
+    final tint = responsibilityTint(context);
+    // A 7% wash reads as a panel on white and as nothing at all on navy, so
+    // the night version is given enough ground to stay a panel.
+    final onNight = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
       padding: EdgeInsets.all(13.r),
       decoration: BoxDecoration(
-        color: kResponsibilityTint.withValues(alpha: 0.07),
+        color: tint.withValues(alpha: onNight ? 0.16 : 0.07),
         borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: kResponsibilityTint.withValues(alpha: 0.22)),
+        border: Border.all(color: tint.withValues(alpha: onNight ? 0.45 : 0.22)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline_rounded, size: 15.r, color: kResponsibilityTint),
+          Icon(Icons.info_outline_rounded, size: 15.r, color: responsibilityTint(context)),
           SizedBox(width: 9.w),
           Expanded(
             child: Column(
@@ -263,7 +267,7 @@ class ResponsibilityExplainer extends StatelessWidget {
                     }),
                     fontSize: 10.5.sp,
                     fontWeight: FontWeight.w600,
-                    textColor: kResponsibilityTint,
+                    textColor: responsibilityTint(context),
                   ),
                 ],
                 if (limit > 0) ...[
@@ -416,11 +420,11 @@ class _ResponsibilityPersonFormState extends State<_ResponsibilityPersonForm> {
                   Container(
                     padding: EdgeInsets.all(8.r),
                     decoration: BoxDecoration(
-                      color: kResponsibilityTint.withValues(alpha: 0.12),
+                      color: responsibilityTint(context).withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(10.r),
                     ),
                     child: Icon(Icons.volunteer_activism_outlined,
-                        size: 16.r, color: kResponsibilityTint),
+                        size: 16.r, color: responsibilityTint(context)),
                   ),
                   SizedBox(width: 10.w),
                   Expanded(
@@ -496,15 +500,22 @@ Future<bool> confirmRemoveResponsibilityPerson(
   final ok = await showDialog<bool>(
     context: context,
     builder: (ctx) => AlertDialog(
+      // CustomText falls back to black, and Material 3 resolves an untinted
+      // dialog to colorScheme.surfaceContainerHigh - which the night theme
+      // paints navy. Left to themselves the two meet as black on navy.
+      backgroundColor: colors(ctx).accentColor,
+      surfaceTintColor: Colors.transparent,
       title: CustomText(
         title: '${'remove'.tr} $name?',
         fontSize: 15.sp,
         fontWeight: FontWeight.w700,
+        textColor: colors(ctx).titleTextColor,
       ),
       content: CustomText(
         title: 'remove_responsibility_person_body'.tr,
         fontSize: 12.sp,
         fontWeight: FontWeight.w400,
+        textColor: colors(ctx).bodyTextColor,
       ),
       actions: [
         TextButton(
