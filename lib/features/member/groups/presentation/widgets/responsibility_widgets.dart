@@ -8,6 +8,7 @@ import 'package:niya_equb/features/member/groups/presentation/widgets/group_ledg
 import 'package:niya_equb/shared/widgets/custom_text.dart';
 import 'package:niya_equb/shared/widgets/custom_text_field.dart';
 import 'package:niya_equb/shared/widgets/rounded_button.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 
 /// Shared pieces for "My Responsibility People" — the places a member holds in
 /// a group for someone who has no Niya account of their own.
@@ -20,9 +21,9 @@ import 'package:niya_equb/shared/widgets/rounded_button.dart';
 
 // responsibilityTint() lives in group_ledger_widgets.dart, which the members
 // ledger also needs it from. Imported above rather than redeclared here so the
-// two can never drift to different purples.
+// two can never drift apart.
 
-/// The small purple label attached to a name.
+/// The small label attached to a name.
 class ResponsibilityBadge extends StatelessWidget {
   /// Who pays for this person. Null renders the short form, used where the
   /// answer is already obvious (a list of only your own people).
@@ -157,13 +158,13 @@ class ResponsibilityPersonTile extends StatelessWidget {
               if (person.roundsPaid != null && person.roundsPaid! > 0)
                 StatusPill(
                   label: '${person.roundsPaid} ${'rounds paid'.tr}',
-                  color: const Color(0xFF16A34A),
+                  color: NiyaPalette.success,
                   icon: Icons.check_circle_rounded,
                 ),
               if (person.hasWon)
                 StatusPill(
                   label: 'won'.tr,
-                  color: const Color(0xFF0EA5E9),
+                  color: AppStaticColor.primary,
                   icon: Icons.emoji_events_outlined,
                 ),
             ],
@@ -395,7 +396,8 @@ class _ResponsibilityPersonFormState extends State<_ResponsibilityPersonForm> {
   @override
   Widget build(BuildContext context) {
     final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    // The button's label is white, so it takes the fill maroon.
+    final primary = appColors.buttonColor ?? AppStaticColor.primary;
 
     return Padding(
       padding: EdgeInsets.only(

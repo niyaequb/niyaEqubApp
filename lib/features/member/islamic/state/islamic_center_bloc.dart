@@ -161,6 +161,9 @@ class IslamicCenterBloc extends Bloc<IslamicCenterEvent, IslamicCenterState> {
     if (event.preAzanMinutes != null) {
       await IslamicPrefs.setPreAzanMinutes(event.preAzanMinutes!);
     }
+    if (event.azanPlaySeconds != null) {
+      await IslamicPrefs.setAzanPlaySeconds(event.azanPlaySeconds!);
+    }
 
     final current = state;
     if (current is IslamicCenterReady) {
@@ -169,10 +172,13 @@ class IslamicCenterBloc extends Bloc<IslamicCenterEvent, IslamicCenterState> {
           soundEnabled: event.soundEnabled,
           vibrateEnabled: event.vibrateEnabled,
           preAzanMinutes: event.preAzanMinutes,
+          azanPlaySeconds: event.azanPlaySeconds,
         ),
       );
     }
 
+    // The limit is part of each booked alert, so every one of them is booked
+    // again with the new value (this call already follows every alert pref).
     _fireAndForget(AzanNotificationService.rescheduleAll());
   }
 
@@ -226,6 +232,7 @@ class IslamicCenterBloc extends Bloc<IslamicCenterEvent, IslamicCenterState> {
       soundEnabled: await IslamicPrefs.isAzanSoundEnabled(),
       vibrateEnabled: await IslamicPrefs.isVibrateEnabled(),
       preAzanMinutes: await IslamicPrefs.getPreAzanMinutes(),
+      azanPlaySeconds: await IslamicPrefs.getAzanPlaySeconds(),
       canScheduleExact: await AzanNotificationService.canScheduleExactAlarms(),
       locationIssue: issue,
       isRefreshing: false,

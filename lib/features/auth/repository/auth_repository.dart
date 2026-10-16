@@ -262,8 +262,9 @@ class AuthRepository {
           "Registration completed successfully";
 
       // A new account must never inherit whatever the previous user on this
-      // phone left cached.
+      // phone left cached — not even an older account under the same number.
       await AppCache.clear();
+      await AppCache.useAccount(toInternationalPhone(phone));
 
       var isSignedIn = false;
 
@@ -345,8 +346,9 @@ class AuthRepository {
         );
       }
 
-      // Whoever was signed in before may not be who is signing in now.
-      await AppCache.clear();
+      // Whoever was signed in before may not be who is signing in now. The
+      // same member signing in again keeps their cached screens.
+      await AppCache.useAccount(toInternationalPhone(phone));
 
       await PreferencesService.writeAccessToken(token);
 
@@ -573,12 +575,18 @@ class AuthRepository {
       final token = _extractToken(body);
       if (token == null) return const Right(false);
 
-      // The same order as login(): clear whoever was here before, then the
-      // token, then the user.
-      await AppCache.clear();
+      final userJson = body['user'];
+
+      // The same order as login(): settle whose cache this is, then the
+      // token, then the user. Inside the SuperApp this runs on most launches,
+      // and it used to wipe the cache every time — which is why the mini app
+      // opened on spinners. The same member now keeps their cached screens.
+      final phone = userJson is Map ? '${userJson['phone'] ?? ''}' : '';
+      await AppCache.useAccount(
+        phone.trim().isEmpty ? null : toInternationalPhone(phone),
+      );
       await PreferencesService.writeAccessToken(token);
 
-      final userJson = body['user'];
       if (userJson is Map<String, dynamic>) {
         try {
           await PreferencesService.saveUser(UserModel.fromJson(userJson));

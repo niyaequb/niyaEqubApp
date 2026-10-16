@@ -97,14 +97,14 @@ class _TermsScreenState extends State<TermsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final ink = isDark ? const Color(0xFFE9E6DF) : NiyaPalette.ink;
+    final skin = niya(context);
+    final ink = skin.ink;
     final text = _text;
 
     return AnnotatedRegion<SystemUiOverlayStyle>(
-      value: SystemUiOverlayStyle.light,
+      value: niyaHeaderOverlay,
       child: Scaffold(
-        backgroundColor: isDark ? NiyaPalette.navyDeep : const Color(0xFFF1ECDF),
+        backgroundColor: skin.page,
         body: Column(
           children: [
             _Header(
@@ -130,7 +130,7 @@ class _TermsScreenState extends State<TermsScreen> {
                           controller: _scroll,
                           padding: EdgeInsets.fromLTRB(14.w, 16.h, 14.w, 28.h),
                           child: _Paper(
-                            isDark: isDark,
+                            skin: skin,
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
@@ -146,7 +146,7 @@ class _TermsScreenState extends State<TermsScreen> {
             ),
             if (widget.requireAcceptance)
               _AcceptBar(
-                isDark: isDark,
+                skin: skin,
                 unlocked: _reachedEnd || text.isEmpty,
                 agreed: _agreed,
                 onAgree: (value) => setState(() => _agreed = value),
@@ -173,7 +173,7 @@ class _Header extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NiyaNightBackdrop(
+    return NiyaHeaderBackdrop(
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -195,9 +195,9 @@ class _Header extends StatelessWidget {
                           padding: EdgeInsets.all(7.r),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            color: Colors.white.withValues(alpha: 0.10),
+                            color: Colors.white.withValues(alpha: 0.12),
                             border: Border.all(
-                              color: NiyaPalette.gold.withValues(alpha: 0.7),
+                              color: Colors.white.withValues(alpha: 0.6),
                             ),
                           ),
                           child: Icon(
@@ -232,7 +232,7 @@ class _Header extends StatelessWidget {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
-                                color: NiyaPalette.goldLight,
+                                color: Colors.white.withValues(alpha: 0.85),
                                 fontSize: 12.5.sp,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -246,7 +246,7 @@ class _Header extends StatelessWidget {
                     child: Icon(
                       Icons.gavel_rounded,
                       size: 17.r,
-                      color: NiyaPalette.maroon,
+                      color: niya(context).accent,
                     ),
                   ),
                 ],
@@ -255,11 +255,11 @@ class _Header extends StatelessWidget {
             // How far through the terms the member is.
             Container(
               height: 3,
-              color: Colors.white.withValues(alpha: 0.10),
+              color: Colors.white.withValues(alpha: 0.15),
               alignment: Alignment.centerLeft,
               child: FractionallySizedBox(
                 widthFactor: progress.clamp(0.0, 1.0),
-                child: Container(color: NiyaPalette.gold),
+                child: Container(color: Colors.white),
               ),
             ),
           ],
@@ -270,22 +270,22 @@ class _Header extends StatelessWidget {
 }
 
 class _Paper extends StatelessWidget {
-  final bool isDark;
+  final NiyaSkin skin;
   final Widget child;
 
-  const _Paper({required this.isDark, required this.child});
+  const _Paper({required this.skin, required this.child});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: EdgeInsets.fromLTRB(18.w, 22.h, 18.w, 22.h),
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF131B33) : NiyaPalette.paper,
+        color: skin.paper,
         borderRadius: BorderRadius.circular(18.r),
-        border: Border.all(color: NiyaPalette.gold.withValues(alpha: 0.5)),
+        border: Border.all(color: skin.line),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: isDark ? 0.4 : 0.07),
+            color: Colors.black.withValues(alpha: skin.isDark ? 0.4 : 0.07),
             blurRadius: 18,
             offset: const Offset(0, 6),
           ),
@@ -303,11 +303,13 @@ class _EndMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final accent = niya(context).accent;
+
     return Row(
       children: [
-        const Expanded(child: NiyaGoldRule()),
+        Expanded(child: NiyaRule(color: accent)),
         SizedBox(width: 8.w),
-        NiyaSparkle(size: 10.r),
+        NiyaSparkle(size: 10.r, color: accent),
         SizedBox(width: 8.w),
         Text(
           'terms_end'.tr,
@@ -318,9 +320,9 @@ class _EndMark extends StatelessWidget {
           ),
         ),
         SizedBox(width: 8.w),
-        NiyaSparkle(size: 10.r),
+        NiyaSparkle(size: 10.r, color: accent),
         SizedBox(width: 8.w),
-        const Expanded(child: NiyaGoldRule(leadsRight: false)),
+        Expanded(child: NiyaRule(leadsRight: false, color: accent)),
       ],
     );
   }
@@ -342,7 +344,7 @@ class _NoTerms extends StatelessWidget {
             Icon(
               Icons.description_rounded,
               size: 56.sp,
-              color: NiyaPalette.gold.withValues(alpha: 0.7),
+              color: niya(context).accent.withValues(alpha: 0.5),
             ),
             SizedBox(height: 12.h),
             Text(
@@ -362,7 +364,7 @@ class _NoTerms extends StatelessWidget {
 }
 
 class _AcceptBar extends StatelessWidget {
-  final bool isDark;
+  final NiyaSkin skin;
   final bool unlocked;
   final bool agreed;
   final ValueChanged<bool> onAgree;
@@ -370,7 +372,7 @@ class _AcceptBar extends StatelessWidget {
   final VoidCallback? onAccept;
 
   const _AcceptBar({
-    required this.isDark,
+    required this.skin,
     required this.unlocked,
     required this.agreed,
     required this.onAgree,
@@ -380,18 +382,16 @@ class _AcceptBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ink = isDark ? Colors.white : NiyaPalette.ink;
-    final accent = isDark ? NiyaPalette.goldLight : NiyaPalette.maroon;
+    final ink = skin.ink;
+    final accent = skin.accent;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? NiyaPalette.navy : Colors.white,
-        border: Border(
-          top: BorderSide(color: NiyaPalette.gold.withValues(alpha: 0.45)),
-        ),
+        color: skin.paper,
+        border: Border(top: BorderSide(color: skin.line)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.10),
+            color: Colors.black.withValues(alpha: skin.isDark ? 0.45 : 0.10),
             blurRadius: 16,
             offset: const Offset(0, -4),
           ),
@@ -440,7 +440,7 @@ class _AcceptBar extends StatelessWidget {
                         onChanged: unlocked
                             ? (value) => onAgree(value ?? false)
                             : null,
-                        activeColor: NiyaPalette.maroon,
+                        activeColor: accent,
                         checkColor: Colors.white,
                         side: BorderSide(
                           color: unlocked
@@ -494,7 +494,7 @@ class _AcceptBar extends StatelessWidget {
                   SizedBox(width: 10.w),
                   Expanded(
                     flex: 3,
-                    child: NiyaGoldButton(
+                    child: NiyaPrimaryButton(
                       label: 'accept_and_join'.tr,
                       icon: Icons.verified_rounded,
                       height: 46.h,
@@ -526,8 +526,7 @@ class TermsContentView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final accent = isDark ? NiyaPalette.goldLight : NiyaPalette.maroon;
+    final accent = niya(context).accent;
     final body = TextStyle(
       color: color,
       fontSize: 14.5.sp,
@@ -564,11 +563,11 @@ class TermsContentView extends StatelessWidget {
               SizedBox(height: 10.h),
               Row(
                 children: [
-                  const Expanded(child: NiyaGoldRule()),
+                  Expanded(child: NiyaRule(color: accent)),
                   SizedBox(width: 6.w),
-                  NiyaSparkle(size: 9.r),
+                  NiyaSparkle(size: 9.r, color: accent),
                   SizedBox(width: 6.w),
-                  const Expanded(child: NiyaGoldRule(leadsRight: false)),
+                  Expanded(child: NiyaRule(leadsRight: false, color: accent)),
                 ],
               ),
             ],
@@ -586,7 +585,11 @@ class TermsContentView extends StatelessWidget {
                 height: 20.h,
                 margin: EdgeInsets.only(top: 2.h, right: 10.w),
                 decoration: BoxDecoration(
-                  gradient: NiyaPalette.goldSheen,
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [accent, accent.withValues(alpha: 0.55)],
+                  ),
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -662,7 +665,7 @@ class TermsContentView extends StatelessWidget {
             children: [
               Padding(
                 padding: EdgeInsets.only(top: 9.h, right: 10.w),
-                child: NiyaSparkle(size: 7.r),
+                child: NiyaSparkle(size: 7.r, color: accent),
               ),
               Expanded(child: _rich(block.text, body)),
             ],

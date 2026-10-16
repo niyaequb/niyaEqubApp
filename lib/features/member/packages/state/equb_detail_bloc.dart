@@ -72,12 +72,33 @@ class EqubDetailBloc extends Bloc<EqubDetailEvent, EqubDetailState> {
       List<PaymentScheduleItem> schedule = [];
       if (membership?.paymentSchedule != null &&
           membership!.paymentSchedule!.isNotEmpty) {
-        schedule = membership.paymentSchedule!.map((e) {
+        final rounds = membership.paymentSchedule!;
+
+        // WHICH ROUNDS ARE PAID is decided here, by the same rule the Pay
+        // button and the server's double-payment guard use: a contribution
+        // counts for the round on its own date, and only one dated for no
+        // round fills the earliest still open (PaymentCalculator
+        // .paidRoundIndexes). It is not read off each round's `status`.
+        //
+        // The server used to mark the first N rounds paid for N contributions,
+        // in order. For a member who had paid the 9th and the 11th, that
+        // coloured the 9th and 10th green and left the 11th open — so the Pay
+        // button offered the 11th, the payment check refused it as already
+        // paid, and the 10th, which really was open, could never be reached.
+        // Deciding it here keeps the calendar and the Pay button on one rule
+        // whatever version of the server answers.
+        final paidRounds = PaymentCalculator.paidRoundIndexes(
+          roundDates: [for (final e in rounds) e.expectedDate],
+          payments: payments,
+        );
+
+        schedule = rounds.asMap().entries.map((entry) {
+          final e = entry.value;
           final date = DateTime.tryParse(e.expectedDate ?? '');
           final now = DateTime.now();
           PaymentScheduleStatus status = PaymentScheduleStatus.pending;
 
-          if (e.status?.toLowerCase() == 'paid') {
+          if (paidRounds.contains(entry.key)) {
             status = PaymentScheduleStatus.paid;
           } else if (date != null) {
             final dateYMD = DateTime(date.year, date.month, date.day);

@@ -22,7 +22,7 @@ import 'package:share_plus/share_plus.dart';
 /// that have been drawn. Winner selection is an admin-only concern, so no
 /// draw controls appear on this screen.
 ///
-/// The night theme is outermost — above the BlocProvider — so that the dialogs
+/// The brand theme is outermost — above the BlocProvider — so that the dialogs
 /// and sheets this screen opens from its State's own context inherit it. See
 /// the note on CreateGroupScreen.
 class GroupDetailScreen extends StatelessWidget {
@@ -34,7 +34,7 @@ class GroupDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return NiyaNightTheme(
+    return NiyaBrandTheme(
       child: BlocProvider(
         create: (_) =>
             sl<GroupDetailBloc>()..add(GroupDetailLoadEvent(groupId: groupId)),
@@ -58,8 +58,8 @@ class _GroupDetailViewState extends State<_GroupDetailView>
   late final TabController _tabs = TabController(length: 3, vsync: this);
   int _memberFilter = 0; // 0 all · 1 unpaid · 2 paid · 3 my responsibility
 
-  static const Color _danger = Color(0xFFF87171);
-  static const Color _warn = Color(0xFFFBBF24);
+  Color _danger(BuildContext context) => niya(context).danger;
+  Color _warn(BuildContext context) => niya(context).warning;
 
   /// Every tab reloads the same three endpoints, and the indicator now waits
   /// for them instead of completing the moment the event is added.
@@ -79,8 +79,8 @@ class _GroupDetailViewState extends State<_GroupDetailView>
   /// down — these used to sit outside any RefreshIndicator.
   Widget _refreshable(BuildContext context, Widget child) {
     return RefreshIndicator(
-      color: NiyaPalette.gold,
-      backgroundColor: NiyaPalette.navy,
+      color: niya(context).accent,
+      backgroundColor: niya(context).paper,
       onRefresh: () => _reload(context),
       child: LayoutBuilder(
         builder: (context, constraints) => ListView(
@@ -139,11 +139,12 @@ class _GroupDetailViewState extends State<_GroupDetailView>
 
   @override
   Widget build(BuildContext context) {
+    final skin = niya(context);
+
     return Scaffold(
-      backgroundColor: NiyaPalette.navyDeep,
+      backgroundColor: skin.page,
       body: Stack(
         children: [
-          const Positioned.fill(child: NiyaNightBackdrop()),
           BlocConsumer<GroupDetailBloc, GroupDetailState>(
             listenWhen: (prev, next) =>
                 next is GroupDetailReady && next.actionMessage != null,
@@ -157,22 +158,30 @@ class _GroupDetailViewState extends State<_GroupDetailView>
               showSuccessSnackBar(context, message);
             },
             builder: (context, state) {
+              // These two have no app bar, so the status bar sits on the white
+              // page and needs dark icons.
               if (state is GroupDetailLoading) {
-                return _loadingSkeleton(context);
+                return AnnotatedRegion(
+                  value: niyaOverlayOverPage(context),
+                  child: _loadingSkeleton(context),
+                );
               }
 
               if (state is GroupDetailFailure) {
-                return SafeArea(
-                  child: Center(
-                    child: SingleChildScrollView(
-                      child: NiyaEmptyState(
-                        icon: Icons.cloud_off_rounded,
-                        title: 'could_not_open_equb'.tr,
-                        body: state.failure.errorMessage,
-                        actionLabel: 'try_again'.tr,
-                        actionIcon: Icons.refresh_rounded,
-                        onAction: () => context.read<GroupDetailBloc>().add(
-                          GroupDetailLoadEvent(groupId: widget.groupId),
+                return AnnotatedRegion(
+                  value: niyaOverlayOverPage(context),
+                  child: SafeArea(
+                    child: Center(
+                      child: SingleChildScrollView(
+                        child: NiyaEmptyState(
+                          icon: Icons.cloud_off_rounded,
+                          title: 'could_not_open_equb'.tr,
+                          body: state.failure.errorMessage,
+                          actionLabel: 'try_again'.tr,
+                          actionIcon: Icons.refresh_rounded,
+                          onAction: () => context.read<GroupDetailBloc>().add(
+                            GroupDetailLoadEvent(groupId: widget.groupId),
+                          ),
                         ),
                       ),
                     ),
@@ -187,15 +196,13 @@ class _GroupDetailViewState extends State<_GroupDetailView>
                 headerSliverBuilder: (context, _) => [
                   SliverAppBar(
                     pinned: true,
-                    // Solid rather than transparent: the tab strip below it is
-                    // a toolbar, and rows of members scrolling through the
-                    // star lattice behind a see-through bar is unreadable.
-                    backgroundColor: NiyaPalette.navyDeep,
+                    // Solid maroon, with the tab strip on it in white.
+                    backgroundColor: skin.fill,
                     surfaceTintColor: Colors.transparent,
                     elevation: 0,
                     scrolledUnderElevation: 0,
                     iconTheme: IconThemeData(
-                      color: NiyaPalette.goldLight,
+                      color: Colors.white,
                       size: 21.r,
                     ),
                     title: Text(
@@ -219,17 +226,17 @@ class _GroupDetailViewState extends State<_GroupDetailView>
                           icon: Icon(
                             Icons.ios_share_rounded,
                             size: 18.r,
-                            color: NiyaPalette.goldLight,
+                            color: Colors.white,
                           ),
                         ),
                     ],
                     bottom: TabBar(
                       controller: _tabs,
-                      labelColor: NiyaPalette.goldLight,
-                      unselectedLabelColor: Colors.white60,
-                      indicatorColor: NiyaPalette.gold,
+                      labelColor: Colors.white,
+                      unselectedLabelColor: Colors.white70,
+                      indicatorColor: Colors.white,
                       indicatorWeight: 2.5,
-                      dividerColor: NiyaPalette.gold.withValues(alpha: 0.25),
+                      dividerColor: Colors.white.withValues(alpha: 0.2),
                       labelStyle: TextStyle(
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w800,
@@ -271,8 +278,8 @@ class _GroupDetailViewState extends State<_GroupDetailView>
     final totals = data.ledger.totals;
 
     return RefreshIndicator(
-      color: NiyaPalette.gold,
-      backgroundColor: NiyaPalette.navy,
+      color: niya(context).accent,
+      backgroundColor: niya(context).paper,
       onRefresh: () => _reload(context),
       child: ListView(
         physics: const AlwaysScrollableScrollPhysics(
@@ -283,13 +290,13 @@ class _GroupDetailViewState extends State<_GroupDetailView>
           if (group.isPendingApproval)
             _notice(
               icon: Icons.hourglass_top_rounded,
-              color: _warn,
+              color: _warn(context),
               text: 'awaiting_approval'.tr,
             ),
           if (group.isRejected && group.rejectionReason != null)
             _notice(
               icon: Icons.error_outline_rounded,
-              color: _danger,
+              color: _danger(context),
               text: group.rejectionReason!,
             ),
 
@@ -327,7 +334,7 @@ class _GroupDetailViewState extends State<_GroupDetailView>
 
           if (group.isOwner) ...[
             SizedBox(height: 20.h),
-            NiyaGoldButton(
+            NiyaPrimaryButton(
               label: 'invite_members'.tr,
               icon: Icons.person_add_alt_1_rounded,
               height: 46.h,
@@ -354,7 +361,7 @@ class _GroupDetailViewState extends State<_GroupDetailView>
             // Draws are run by Niya from the admin panel, never from the app.
             _notice(
               icon: Icons.casino_rounded,
-              color: NiyaPalette.goldLight,
+              color: niya(context).accent,
               text: 'draws_run_by_admin'.tr,
               bottomMargin: false,
             ),
@@ -414,7 +421,7 @@ class _GroupDetailViewState extends State<_GroupDetailView>
                       child: Text(
                         r.$1,
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: niya(context).inkSoft,
                           fontSize: 11.5.sp,
                           fontWeight: FontWeight.w500,
                           height: 1.3,
@@ -426,7 +433,7 @@ class _GroupDetailViewState extends State<_GroupDetailView>
                       child: Text(
                         r.$2,
                         style: TextStyle(
-                          color: Colors.white,
+                          color: niya(context).ink,
                           fontSize: 11.5.sp,
                           fontWeight: FontWeight.w700,
                           height: 1.3,
@@ -460,16 +467,16 @@ class _GroupDetailViewState extends State<_GroupDetailView>
         child: Container(
           padding: EdgeInsets.all(14.r),
           decoration: BoxDecoration(
-            color: tint.withValues(alpha: 0.16),
+            color: tint.withValues(alpha: 0.07),
             borderRadius: BorderRadius.circular(16.r),
-            border: Border.all(color: tint.withValues(alpha: 0.45)),
+            border: Border.all(color: tint.withValues(alpha: 0.3)),
           ),
           child: Row(
             children: [
               Container(
                 padding: EdgeInsets.all(9.r),
                 decoration: BoxDecoration(
-                  color: tint.withValues(alpha: 0.22),
+                  color: tint.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(11.r),
                 ),
                 child: Icon(
@@ -486,7 +493,7 @@ class _GroupDetailViewState extends State<_GroupDetailView>
                     Text(
                       'my_responsibility_people'.tr,
                       style: TextStyle(
-                        color: Colors.white,
+                        color: niya(context).ink,
                         fontSize: 13.sp,
                         fontWeight: FontWeight.w800,
                       ),
@@ -501,7 +508,7 @@ class _GroupDetailViewState extends State<_GroupDetailView>
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: niya(context).inkSoft,
                         fontSize: 11.sp,
                         fontWeight: FontWeight.w500,
                         height: 1.3,
@@ -516,7 +523,7 @@ class _GroupDetailViewState extends State<_GroupDetailView>
                           'count': '$total',
                         }),
                         style: TextStyle(
-                          color: Colors.white54,
+                          color: niya(context).inkFaint,
                           fontSize: 10.sp,
                           fontWeight: FontWeight.w500,
                         ),
@@ -576,9 +583,9 @@ class _GroupDetailViewState extends State<_GroupDetailView>
       margin: EdgeInsets.only(bottom: bottomMargin ? 14.h : 0),
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
+        color: color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -669,8 +676,8 @@ class _GroupDetailViewState extends State<_GroupDetailView>
                   ),
                 )
               : RefreshIndicator(
-                  color: NiyaPalette.gold,
-                  backgroundColor: NiyaPalette.navy,
+                  color: niya(context).accent,
+                  backgroundColor: niya(context).paper,
                   onRefresh: () => _reload(context),
                   child: ListView.builder(
                     physics: const AlwaysScrollableScrollPhysics(
@@ -704,7 +711,7 @@ class _GroupDetailViewState extends State<_GroupDetailView>
         ),
         if (data.ledger.behind.isNotEmpty && data.group.isOwner)
           NiyaBottomBar(
-            child: NiyaGoldButton(
+            child: NiyaPrimaryButton(
               label: 'remind_everyone_who_owes'.tr,
               icon: Icons.notifications_active_rounded,
               busy: data.isBusy,
@@ -726,7 +733,8 @@ class _GroupDetailViewState extends State<_GroupDetailView>
     int count, {
     Color? tint,
   }) {
-    final colour = tint ?? NiyaPalette.goldLight;
+    final skin = niya(context);
+    final colour = tint ?? skin.accent;
     final selected = _memberFilter == index;
 
     return Material(
@@ -737,20 +745,18 @@ class _GroupDetailViewState extends State<_GroupDetailView>
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 7.h),
           decoration: BoxDecoration(
-            color: selected
-                ? colour.withValues(alpha: 0.2)
-                : Colors.white.withValues(alpha: 0.04),
+            color: selected ? colour.withValues(alpha: 0.1) : skin.paper,
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
               color: selected
                   ? colour.withValues(alpha: 0.7)
-                  : Colors.white24,
+                  : skin.line,
             ),
           ),
           child: Text(
             '$label ($count)',
             style: TextStyle(
-              color: selected ? colour : Colors.white70,
+              color: selected ? colour : skin.inkSoft,
               fontSize: 11.sp,
               fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
             ),
@@ -779,8 +785,8 @@ class _GroupDetailViewState extends State<_GroupDetailView>
     }
 
     return RefreshIndicator(
-      color: NiyaPalette.gold,
-      backgroundColor: NiyaPalette.navy,
+      color: niya(context).accent,
+      backgroundColor: niya(context).paper,
       onRefresh: () => _reload(context),
       child: ListView.builder(
         physics: const AlwaysScrollableScrollPhysics(
@@ -803,16 +809,15 @@ class _GroupDetailViewState extends State<_GroupDetailView>
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: NiyaPalette.navySoft,
+        backgroundColor: niya(ctx).paper,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16.r),
-          side: BorderSide(color: NiyaPalette.gold.withValues(alpha: 0.45)),
         ),
         title: Text(
           '${'remove'.tr} ${member.name}?',
           style: TextStyle(
-            color: Colors.white,
+            color: niya(ctx).ink,
             fontSize: 15.sp,
             fontWeight: FontWeight.w800,
           ),
@@ -825,7 +830,7 @@ class _GroupDetailViewState extends State<_GroupDetailView>
               ? 'remove_responsibility_person_body'.tr
               : 'remove_member_body'.tr,
           style: TextStyle(
-            color: Colors.white70,
+            color: niya(ctx).inkSoft,
             fontSize: 12.sp,
             fontWeight: FontWeight.w500,
             height: 1.4,
@@ -836,12 +841,15 @@ class _GroupDetailViewState extends State<_GroupDetailView>
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               'cancel'.tr,
-              style: const TextStyle(color: Colors.white70),
+              style: TextStyle(color: niya(ctx).inkSoft),
             ),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: Text('remove'.tr, style: const TextStyle(color: _danger)),
+            child: Text(
+              'remove'.tr,
+              style: TextStyle(color: _danger(ctx)),
+            ),
           ),
         ],
       ),

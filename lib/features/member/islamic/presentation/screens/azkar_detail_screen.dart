@@ -4,6 +4,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/features/member/islamic/data/models/azkar_model.dart';
+import 'package:niya_equb/features/member/islamic/presentation/islamic_theme.dart';
 import 'package:niya_equb/features/member/islamic/presentation/widgets/azkar_scene.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -201,8 +202,8 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Colors.black.withValues(alpha: 0.34),
-                    Colors.black.withValues(alpha: 0.10),
+                    IslamicColors.primaryDark.withValues(alpha: 0.85),
+                    IslamicColors.primary.withValues(alpha: 0.55),
                   ],
                 ),
               ),
@@ -297,7 +298,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.refresh_rounded, size: 17.sp, color: category.accent),
+          Icon(Icons.refresh_rounded, size: 17.sp, color: IslamicColors.readableOf(context, category.accent)),
           SizedBox(width: 9.w),
           Expanded(
             child: Text(
@@ -309,7 +310,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w700,
-                color: category.accent,
+                color: IslamicColors.readableOf(context, category.accent),
               ),
             ),
           ),
@@ -476,7 +477,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
                         fontSize: 28.sp,
                         fontWeight: FontWeight.w800,
                         height: 1,
-                        color: category.accent,
+                        color: IslamicColors.readableOf(context, category.accent),
                       ),
                     ),
             ),
@@ -510,7 +511,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
                   style: TextStyle(
                     fontSize: 9.5.sp,
                     fontWeight: FontWeight.w700,
-                    color: category.accent,
+                    color: IslamicColors.readableOf(context, category.accent),
                   ),
                 ),
               ),
@@ -565,7 +566,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
                 fontSize: 12.sp,
                 fontStyle: FontStyle.italic,
                 height: 1.55,
-                color: category.accent,
+                color: IslamicColors.readableOf(context, category.accent),
               ),
             ),
           ],
@@ -592,7 +593,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
                   Icon(
                     Icons.star_rounded,
                     size: 15.sp,
-                    color: category.accent,
+                    color: IslamicColors.readableOf(context, category.accent),
                   ),
                   SizedBox(width: 8.w),
                   Expanded(
@@ -636,7 +637,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
       ),
       child: Row(
         children: [
-          Icon(Icons.verified_rounded, color: category.accent, size: 21.sp),
+          Icon(Icons.verified_rounded, color: IslamicColors.readableOf(context, category.accent), size: 21.sp),
           SizedBox(width: 10.w),
           Expanded(
             child: Text(
@@ -646,7 +647,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
               style: TextStyle(
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w700,
-                color: category.accent,
+                color: IslamicColors.readableOf(context, category.accent),
               ),
             ),
           ),
@@ -657,7 +658,7 @@ class _AzkarDetailScreenState extends State<AzkarDetailScreen> {
               style: TextStyle(
                 fontSize: 11.5.sp,
                 fontWeight: FontWeight.w700,
-                color: category.accent,
+                color: IslamicColors.readableOf(context, category.accent),
               ),
             ),
           ),

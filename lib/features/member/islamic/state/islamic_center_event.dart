@@ -61,20 +61,28 @@ class IslamicCenterToggleAzanEvent extends IslamicCenterEvent {
   List<Object?> get props => [prayer, enabled];
 }
 
-/// Global sound / vibration / pre-reminder switches.
+/// Global sound / vibration / pre-reminder switches, and how long the adhan
+/// plays (seconds; 0 = the whole recording).
 class IslamicCenterUpdateAlertPrefsEvent extends IslamicCenterEvent {
   final bool? soundEnabled;
   final bool? vibrateEnabled;
   final int? preAzanMinutes;
+  final int? azanPlaySeconds;
 
   const IslamicCenterUpdateAlertPrefsEvent({
     this.soundEnabled,
     this.vibrateEnabled,
     this.preAzanMinutes,
+    this.azanPlaySeconds,
   });
 
   @override
-  List<Object?> get props => [soundEnabled, vibrateEnabled, preAzanMinutes];
+  List<Object?> get props => [
+    soundEnabled,
+    vibrateEnabled,
+    preAzanMinutes,
+    azanPlaySeconds,
+  ];
 }
 
 /// Moves to another calendar day in the times view.

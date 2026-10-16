@@ -184,7 +184,7 @@ class _PrayerTimesCardState extends State<PrayerTimesCard> {
                     style: TextStyle(
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w600,
-                      color: IslamicColors.primary,
+                      color: IslamicColors.readable(context),
                     ),
                   ),
                   if (!_isToday)
@@ -317,7 +317,7 @@ class _PrayerTimesCardState extends State<PrayerTimesCard> {
             style: TextStyle(
               fontSize: 11.sp,
               fontWeight: FontWeight.w700,
-              color: IslamicColors.primary,
+              color: IslamicColors.readable(context),
             ),
           ),
         ],
@@ -353,14 +353,6 @@ class _PrayerColumn extends StatelessWidget {
     Prayer.isha => Icons.dark_mode_rounded,
   };
 
-  Color get _iconColor => switch (prayer) {
-    Prayer.fajr => const Color(0xFF6366F1),
-    Prayer.sunrise => const Color(0xFFF59E0B),
-    Prayer.dhuhr => const Color(0xFFFBBF24),
-    Prayer.asr => const Color(0xFF60A5FA),
-    Prayer.maghrib => const Color(0xFFF97316),
-    Prayer.isha => const Color(0xFF4F46E5),
-  };
 
   @override
   Widget build(BuildContext context) {
@@ -396,7 +388,7 @@ class _PrayerColumn extends StatelessWidget {
                   fontSize: 10.5.sp,
                   fontWeight: isNext ? FontWeight.w800 : FontWeight.w600,
                   color: isNext
-                      ? IslamicColors.primary
+                      ? IslamicColors.readable(context)
                       : appColors.bodyTextSmallColor,
                 ),
               ),
@@ -405,7 +397,13 @@ class _PrayerColumn extends StatelessWidget {
             Stack(
               clipBehavior: Clip.none,
               children: [
-                Icon(_icon, size: 20.sp, color: _iconColor),
+                Icon(
+                  _icon,
+                  size: 20.sp,
+                  color: isNext
+                      ? IslamicColors.readable(context)
+                      : appColors.bodyTextSmallColor,
+                ),
                 if (prayer.isAdhanPrayer)
                   Positioned(
                     right: -6,
@@ -416,7 +414,7 @@ class _PrayerColumn extends StatelessWidget {
                           : Icons.notifications_off_outlined,
                       size: 10.sp,
                       color: azanOn
-                          ? IslamicColors.accentTeal
+                          ? IslamicColors.readable(context)
                           : appColors.bodyTextSmallColor?.withValues(alpha: 0.6),
                     ),
                   ),
@@ -431,7 +429,7 @@ class _PrayerColumn extends StatelessWidget {
                   fontSize: 11.5.sp,
                   fontWeight: FontWeight.w700,
                   color: isNext
-                      ? IslamicColors.primary
+                      ? IslamicColors.readable(context)
                       : appColors.titleTextColor,
                 ),
               ),

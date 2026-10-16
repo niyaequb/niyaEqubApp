@@ -13,6 +13,7 @@ import 'package:niya_equb/features/agent/members/state/agent_members_event.dart'
 import 'package:niya_equb/features/agent/members/state/agent_members_state.dart';
 import 'package:niya_equb/shared/widgets/custom_text.dart';
 import 'package:niya_equb/shared/widgets/rounded_button.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 
 class AgentMembersScreen extends StatelessWidget {
   static const String routeName = '/agent-members';
@@ -62,7 +63,7 @@ class _AgentMembersView extends StatelessWidget {
                   title: 'members_referred'.tr,
                   fontSize: 18.sp,
                   fontWeight: FontWeight.w700,
-                  textColor: appColors.titleTextColor,
+                  textColor: Colors.white,
                 ),
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back_rounded),
@@ -175,7 +176,7 @@ class _ErrorMembersState extends StatelessWidget {
         border: Border.all(color: appColors.borderColor!),
         boxShadow: [
           BoxShadow(
-            color: Colors.red.withValues(alpha: isDark ? 0.06 : 0.04),
+            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.04),
             blurRadius: 20,
             offset: const Offset(0, 4),
           ),
@@ -189,12 +190,12 @@ class _ErrorMembersState extends StatelessWidget {
             width: 72.r,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.red.withValues(alpha: isDark ? 0.2 : 0.12),
+              color: niya(context).danger.withValues(alpha: isDark ? 0.2 : 0.12),
             ),
             child: Icon(
               Icons.error_outline_rounded,
               size: 36.sp,
-              color: Colors.red.shade400,
+              color: niya(context).danger,
             ),
           ),
           SizedBox(height: 20.h),
@@ -225,8 +226,8 @@ class _ErrorMembersState extends StatelessWidget {
           RoundedButton(
             label: 'retry'.tr,
             height: 48.h,
-            backgroundColor: appColors.primaryColor,
-            foregroundColor: Colors.black.withValues(alpha: 0.85),
+            backgroundColor: appColors.buttonColor,
+            foregroundColor: Colors.white,
             onPressed: onRetry,
             icon: Icon(Icons.refresh_rounded, size: 20.sp),
           ),

@@ -85,18 +85,17 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
 
     return Scaffold(
       backgroundColor: appColors.scaffoldBackgroundColor,
+      // Maroon, like every header in the app (AppBarTheme).
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: appColors.titleTextColor),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: CustomText(
           title: "complete_profile".tr,
           fontSize: 18.sp,
-          textColor: appColors.titleTextColor,
+          textColor: Colors.white,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -294,7 +293,7 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
                       submitting: state is AuthSignupLoading,
                       label: "create_account_btn".tr,
                       height: 50.h,
-                      backgroundColor: appColors.primaryColor,
+                      backgroundColor: appColors.buttonColor,
                       onPressed: _handleSubmit,
                     );
                   },

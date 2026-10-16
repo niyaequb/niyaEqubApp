@@ -36,7 +36,7 @@ class CustomTextField extends StatelessWidget {
     final appColors = colors(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryBrandColor =
-        appColors.primaryColor ?? AppStaticColor.primaryAmber;
+        appColors.primaryColor ?? AppStaticColor.primary;
 
     // The dark palette is read from the theme rather than hardcoded, so a
     // subtree that installs its own AppColors - the Equb night screens, for
@@ -44,7 +44,7 @@ class CustomTextField extends StatelessWidget {
     // values this field used before, so ordinary dark mode is unchanged if the
     // theme ever arrives without them. The light branch below is deliberately
     // left alone: its amber-tinted border is how every form in the app looks.
-    final Color darkBorder = appColors.borderColor ?? const Color(0xFF38434F);
+    final Color darkBorder = appColors.borderColor ?? const Color(0xFF3A3436);
     final Color darkText = appColors.titleTextColor ?? Colors.white;
     final Color darkHint = appColors.hintTextColor ?? Colors.white38;
     final Color darkFill =

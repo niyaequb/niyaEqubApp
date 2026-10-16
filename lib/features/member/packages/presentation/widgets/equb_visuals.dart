@@ -12,7 +12,10 @@ import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 Widget packageGlyph(
   String? name, {
   required double size,
-  Color color = NiyaPalette.maroon,
+
+  /// Null takes the colour from the ambient IconTheme, which under the Equb
+  /// screens' theme is the maroon that reads in the current mode.
+  Color? color,
 }) {
   final n = (name ?? '').toLowerCase();
 
@@ -36,7 +39,7 @@ Widget packageGlyph(
     _ when has(['sabr', 'sabir', 'ሰብር', 'ሶብር']) =>
       Icons.volunteer_activism_rounded,
     _ when has(['nur', 'noor', 'ኑር']) => Icons.mosque_rounded,
-    _ when has(['iman', 'eman', 'ኢማን', 'እማን']) => Icons.menu_book_rounded,
+    _ when has(['iman', 'eman', 'ኢማን', 'ኢማን']) => Icons.menu_book_rounded,
     _ when has(['ramadan', 'ramadhan', 'ረመዳን', 'ረማዳን', 'ረመዷን']) =>
       Icons.nightlight_round,
     _ when has(['family', 'jama', 'maatii', 'ቤተሰብ', 'ጀምአ', 'ጀመዓ', 'ጀማ']) =>
@@ -123,6 +126,19 @@ String? frequencyText(String? days) {
 String paymentLabel(String? days) {
   final key = frequencyKey(days);
   return key == null ? 'pkg_pay_each'.tr : 'pkg_pay_$key'.tr;
+}
+
+/// A package's plans in the order a member compares them: by how often they
+/// are paid, shortest first — Daily, Weekly, Monthly — then by id, so the
+/// order never changes from one load to the next.
+List<EqubGroup> plansByCycle(Iterable<EqubGroup> plans) {
+  int days(EqubGroup g) =>
+      int.tryParse(g.contributionFrequencyDays?.trim() ?? '') ?? 1 << 30;
+
+  return [...plans]..sort((a, b) {
+    final byCycle = days(a).compareTo(days(b));
+    return byCycle != 0 ? byCycle : (a.id ?? 0).compareTo(b.id ?? 0);
+  });
 }
 
 /// The cycles a package offers, shortest first: Daily, Weekly, Monthly.

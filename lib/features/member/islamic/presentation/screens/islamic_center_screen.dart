@@ -227,7 +227,7 @@ class _IslamicCenterScreenState extends State<IslamicCenterScreen> {
                   ),
                   child: Icon(
                     Icons.bookmark_rounded,
-                    color: IslamicColors.featureQuran,
+                    color: IslamicColors.readable(context),
                     size: 19.sp,
                   ),
                 ),
@@ -263,7 +263,7 @@ class _IslamicCenterScreenState extends State<IslamicCenterScreen> {
                   style: TextStyle(
                     fontSize: 15.sp,
                     fontWeight: FontWeight.w700,
-                    color: IslamicColors.featureQuran,
+                    color: IslamicColors.readable(context),
                   ),
                 ),
               ],
@@ -345,7 +345,7 @@ class _IslamicCenterScreenState extends State<IslamicCenterScreen> {
           children: [
             Icon(
               Icons.location_off_rounded,
-              color: IslamicColors.primaryDark,
+              color: IslamicColors.readable(context),
               size: 19.sp,
             ),
             SizedBox(width: 10.w),
@@ -367,7 +367,7 @@ class _IslamicCenterScreenState extends State<IslamicCenterScreen> {
                 style: TextStyle(
                   fontSize: 11.sp,
                   fontWeight: FontWeight.w700,
-                  color: IslamicColors.primaryDark,
+                  color: IslamicColors.readable(context),
                 ),
               ),
             ),
@@ -464,7 +464,7 @@ class _IslamicCenterScreenState extends State<IslamicCenterScreen> {
               ListTile(
                 leading: Icon(
                   Icons.my_location_rounded,
-                  color: IslamicColors.primary,
+                  color: IslamicColors.readable(context),
                 ),
                 title: Text(
                   'use_my_location'.tr,
@@ -520,14 +520,14 @@ class _IslamicCenterScreenState extends State<IslamicCenterScreen> {
                               ? FontWeight.w700
                               : FontWeight.w500,
                           color: isSelected
-                              ? IslamicColors.primary
+                              ? IslamicColors.readable(context)
                               : appColors.bodyTextColor,
                         ),
                       ),
                       trailing: isSelected
                           ? Icon(
                               Icons.check_circle_rounded,
-                              color: IslamicColors.primary,
+                              color: IslamicColors.readable(context),
                               size: 18.sp,
                             )
                           : null,

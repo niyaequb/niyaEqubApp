@@ -126,7 +126,7 @@ class _QuranSurahListScreenState extends State<QuranSurahListScreen>
       margin: EdgeInsets.fromLTRB(12.w, 10.h, 12.w, 0),
       decoration: BoxDecoration(
         gradient: const LinearGradient(
-          colors: [IslamicColors.featureQuran, Color(0xFF15803D)],
+          colors: [IslamicColors.primary, IslamicColors.primaryDark],
         ),
         borderRadius: BorderRadius.circular(14.r),
       ),
@@ -268,7 +268,7 @@ class _QuranSurahListScreenState extends State<QuranSurahListScreen>
                       style: TextStyle(
                         fontSize: 11.sp,
                         fontWeight: FontWeight.w800,
-                        color: IslamicColors.featureQuran,
+                        color: IslamicColors.readable(context),
                       ),
                     ),
                   ],
@@ -298,7 +298,7 @@ class _QuranSurahListScreenState extends State<QuranSurahListScreen>
                           Icon(
                             Icons.offline_pin_rounded,
                             size: 12.sp,
-                            color: IslamicColors.accentTeal,
+                            color: IslamicColors.readable(context),
                           ),
                         ],
                       ],
@@ -321,7 +321,7 @@ class _QuranSurahListScreenState extends State<QuranSurahListScreen>
                 style: TextStyle(
                   fontSize: 17.sp,
                   fontWeight: FontWeight.w700,
-                  color: IslamicColors.featureQuran,
+                  color: IslamicColors.readable(context),
                 ),
               ),
             ],
@@ -374,7 +374,7 @@ class _QuranSurahListScreenState extends State<QuranSurahListScreen>
                 children: [
                   Icon(
                     Icons.bookmark_rounded,
-                    color: IslamicColors.mosqueDome,
+                    color: IslamicColors.readable(context),
                     size: 19.sp,
                   ),
                   SizedBox(width: 11.w),

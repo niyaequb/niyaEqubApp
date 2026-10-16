@@ -21,6 +21,7 @@ import 'package:niya_equb/shared/widgets/custom_text.dart';
 import 'package:niya_equb/shared/widgets/custom_text_field.dart';
 import 'package:niya_equb/shared/widgets/custom_phone_field.dart';
 import 'package:niya_equb/shared/widgets/rounded_button.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 
 class AgentDashboardScreen extends StatelessWidget {
   const AgentDashboardScreen({super.key, this.onNavigateToPayout});
@@ -67,7 +68,7 @@ class AgentDashboardScreen extends StatelessWidget {
                     title: name,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w700,
-                    textColor: appColors.titleTextColor,
+                    textColor: Colors.white,
                   ),
                   actions: [
                     IconButton(
@@ -291,8 +292,8 @@ void _showReferralCodeSheet(BuildContext context, String code) {
                 child: RoundedButton(
                   label: 'copy'.tr,
                   height: 48.h,
-                  backgroundColor: appColors.primaryColor,
-                  foregroundColor: Colors.black.withValues(alpha: 0.85),
+                  backgroundColor: appColors.buttonColor,
+                  foregroundColor: Colors.white,
                   onPressed: () async {
                     try {
                       await Clipboard.setData(ClipboardData(text: code));
@@ -450,7 +451,7 @@ class _AddUserSheetContentState extends State<_AddUserSheetContent> {
         if (state is AgentAddMemberFailure) {
           CustomToast.showToast(
             state.failure.errorMessage,
-            bgColor: Colors.red,
+            bgColor: NiyaPalette.danger,
             textColor: Colors.white,
           );
         }
@@ -564,8 +565,8 @@ class _AddUserSheetContentState extends State<_AddUserSheetContent> {
                         child: RoundedButton(
                           label: 'add_user_submit'.tr,
                           height: 48.h,
-                          backgroundColor: appColors.primaryColor,
-                          foregroundColor: Colors.black.withValues(alpha: 0.85),
+                          backgroundColor: appColors.buttonColor,
+                          foregroundColor: Colors.white,
                           submitting: isLoading,
                           onPressed: isLoading ? null : _submit,
                         ),

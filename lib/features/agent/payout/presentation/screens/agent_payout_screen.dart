@@ -14,6 +14,7 @@ import 'package:niya_equb/features/member/profile/presentation/screens/ekub_prof
 import 'package:niya_equb/shared/widgets/custom_text.dart';
 import 'package:niya_equb/shared/widgets/custom_text_field.dart';
 import 'package:niya_equb/shared/widgets/rounded_button.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 
 class AgentPayoutScreen extends StatelessWidget {
   const AgentPayoutScreen({super.key, this.onNavigateToProfile});
@@ -122,8 +123,8 @@ class AgentPayoutScreen extends StatelessWidget {
                   RoundedButton(
                     label: 'request_payout'.tr,
                     height: 48.h,
-                    backgroundColor: appColors.primaryColor,
-                    foregroundColor: Colors.black.withValues(alpha: 0.85),
+                    backgroundColor: appColors.buttonColor,
+                    foregroundColor: Colors.white,
                     onPressed: () {
                       if (formKey.currentState!.validate()) {
                         final amount = double.parse(amountCtrl.text.trim());
@@ -190,7 +191,7 @@ class AgentPayoutScreen extends StatelessWidget {
                     title: 'payout_title'.tr,
                     fontSize: 18.sp,
                     fontWeight: FontWeight.w700,
-                    textColor: appColors.titleTextColor,
+                    textColor: Colors.white,
                   ),
                 ),
                 if (isLoading)
@@ -352,8 +353,8 @@ class _WalletCard extends StatelessWidget {
               label: hasBankInfo ? 'request_payout'.tr : 'add_bank_information'.tr,
               height: 48.h,
               submitting: isLoading,
-              backgroundColor: appColors.primaryColor,
-              foregroundColor: Colors.black.withValues(alpha: 0.85),
+              backgroundColor: appColors.buttonColor,
+              foregroundColor: Colors.white,
               onPressed: !isLoading && hasBankInfo && canRequestPayout ? onRequestTap : null,
             ),
           ),
@@ -391,14 +392,12 @@ class _FilterChips extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 13.sp,
                   fontWeight: isSel ? FontWeight.w700 : FontWeight.w500,
-                  color: isSel
-                      ? Colors.black.withValues(alpha: 0.85)
-                      : appColors.bodyTextSmallColor,
+                  color: isSel ? Colors.white : appColors.bodyTextSmallColor,
                 ),
               ),
               selected: isSel,
               onSelected: (_) => onSelected(f),
-              selectedColor: appColors.primaryColor,
+              selectedColor: appColors.buttonColor,
               backgroundColor: appColors.accentColor,
               side: BorderSide(
                 color: isSel
@@ -450,13 +449,14 @@ class _PaymentTile extends StatelessWidget {
     }
 
     final status = (payment.status ?? '').toLowerCase();
+    final skin = niya(context);
     final statusColor = status == 'completed' || status.contains('paid')
-        ? Colors.green
+        ? skin.success
         : status == 'pending'
-            ? Colors.orange
+            ? skin.warning
             : status == 'failed'
-                ? Colors.red
-                : (appColors.bodyTextSmallColor ?? Colors.grey);
+                ? skin.danger
+                : (appColors.bodyTextSmallColor ?? skin.inkSoft);
 
     final displayDate = payment.paidAt ?? payment.createdAt ?? '';
     final bankInfo = [

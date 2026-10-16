@@ -30,7 +30,7 @@ class InviteMembersScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => NiyaNightTheme(
+  Widget build(BuildContext context) => NiyaBrandTheme(
     child: _InviteMembersForm(groupId: groupId, inviteCode: inviteCode),
   );
 }
@@ -67,7 +67,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
   bool _phoneHasText = false;
   bool _sending = false;
 
-  static const Color _good = Color(0xFF4ADE80);
+  Color get _good => niya(context).success;
 
   @override
   void dispose() {
@@ -133,14 +133,14 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
 
   @override
   Widget build(BuildContext context) {
-    return NiyaNightScaffold(
+    return NiyaScaffold(
       title: 'Invite members'.tr,
       bottomBar: _phones.isEmpty ? null : _bottomBar,
       body: _body,
     );
   }
 
-  Widget _bottomBar(BuildContext context) => NiyaGoldButton(
+  Widget _bottomBar(BuildContext context) => NiyaPrimaryButton(
     label: 'Send ${_phones.length} invitation(s)',
     icon: Icons.send_rounded,
     busy: _sending,
@@ -174,7 +174,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
         Text(
           'add_members_phone_only_hint'.tr,
           style: TextStyle(
-            color: Colors.white60,
+            color: niya(context).inkSoft,
             fontSize: 11.sp,
             fontWeight: FontWeight.w500,
             height: 1.35,
@@ -198,7 +198,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
                   ? Icons.check_circle_rounded
                   : Icons.check_circle_outline_rounded,
               size: 26.r,
-              color: _phoneReady ? _good : Colors.white24,
+              color: _phoneReady ? _good : niya(context).inkFaint,
             ),
           ),
         ),
@@ -207,7 +207,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
           Text(
             'phone_incomplete_hint'.tr,
             style: TextStyle(
-              color: Colors.white60,
+              color: niya(context).inkSoft,
               fontSize: 10.5.sp,
               fontWeight: FontWeight.w500,
             ),
@@ -223,7 +223,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
                 Icon(
                   Icons.group_add_rounded,
                   size: 18.r,
-                  color: NiyaPalette.goldLight,
+                  color: niya(context).accent,
                 ),
                 SizedBox(width: 10.w),
                 Expanded(
@@ -231,7 +231,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
                     'Nobody added yet. Add a number above, or share your invite code.'
                         .tr,
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: niya(context).inkSoft,
                       fontSize: 11.5.sp,
                       fontWeight: FontWeight.w500,
                       height: 1.35,
@@ -247,7 +247,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
             icon: Icons.outgoing_mail,
             trailing: NiyaPill(
               label: '$total',
-              color: NiyaPalette.goldLight,
+              color: niya(context).accent,
             ),
           ),
           SizedBox(height: 12.h),
@@ -282,7 +282,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
             child: Icon(
               Icons.vpn_key_rounded,
               size: 19.r,
-              color: NiyaPalette.maroon,
+              color: niya(context).accent,
             ),
           ),
           SizedBox(width: 12.w),
@@ -293,7 +293,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
                 Text(
                   'Invite code'.tr,
                   style: TextStyle(
-                    color: Colors.white70,
+                    color: niya(context).inkSoft,
                     fontSize: 10.5.sp,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 0.4,
@@ -305,7 +305,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: NiyaPalette.goldLight,
+                    color: niya(context).accent,
                     fontSize: 20.sp,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 2,
@@ -324,7 +324,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
             icon: Icon(
               Icons.copy_rounded,
               size: 19.r,
-              color: NiyaPalette.goldLight,
+              color: niya(context).accent,
             ),
           ),
           IconButton(
@@ -335,7 +335,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
             icon: Icon(
               Icons.ios_share_rounded,
               size: 19.r,
-              color: NiyaPalette.goldLight,
+              color: niya(context).accent,
             ),
           ),
         ],
@@ -353,7 +353,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
             Icon(
               Icons.phone_iphone_rounded,
               size: 16.r,
-              color: NiyaPalette.goldLight,
+              color: niya(context).accent,
             ),
             SizedBox(width: 10.w),
             Expanded(
@@ -365,7 +365,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: niya(context).ink,
                       fontSize: 12.5.sp,
                       fontWeight: FontWeight.w700,
                     ),
@@ -376,7 +376,7 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white60,
+                      color: niya(context).inkSoft,
                       fontSize: 10.sp,
                       fontWeight: FontWeight.w500,
                       height: 1.3,
@@ -386,14 +386,14 @@ class _InviteMembersFormState extends State<_InviteMembersForm> {
               ),
             ),
             SizedBox(width: 8.w),
-            NiyaPill(label: 'invite'.tr, color: NiyaPalette.goldLight),
+            NiyaPill(label: 'invite'.tr, color: niya(context).accent),
             IconButton(
               onPressed: onRemove,
               visualDensity: VisualDensity.compact,
               icon: Icon(
                 Icons.close_rounded,
                 size: 16.r,
-                color: Colors.white60,
+                color: niya(context).inkSoft,
               ),
             ),
           ],

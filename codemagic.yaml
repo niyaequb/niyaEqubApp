@@ -7,15 +7,28 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
+    integrations:
+      app_store_connect: Codemagic Key
     scripts:
       - name: Set up code signing settings on Xcode project
         script: |
+          # 1. Set the Apple Developer Team ID explicitly
+          xcode-project set-team --team-id DH6J3VY458
+          
+          # 2. Automatically fetch and install distribution signing files from App Store Connect
+          app-store-connect fetch-signing-files com.niyaet.ekub --type IOS_DISTRIBUTION --create
+          
+          # 3. Apply the fetched provisioning profiles to the Xcode project
           xcode-project use-profiles
       - name: Get Flutter packages
         script: |
           flutter pub get
       - name: Build iOS IPA
         script: |
-          flutter build ipa --release --no-codesign
+          flutter build ipa --release --export-options-plist=$HOME/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: true

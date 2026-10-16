@@ -142,6 +142,7 @@ class QuranAudioController {
 
     _content = content;
     _reciter = reciter;
+    _previewVoiceId = null;
 
     if (alreadyLoaded) {
       await seekToAyah(startAyah);
@@ -303,6 +304,53 @@ class QuranAudioController {
       RecitationRepeat.ayah => LoopMode.one,
       RecitationRepeat.surah => LoopMode.all,
     });
+  }
+
+  // ------------------------------------------------------------------
+  // Adhan voice previews
+  // ------------------------------------------------------------------
+
+  /// Which adhan voice is being previewed, or null.
+  String? get previewingVoiceId => _previewVoiceId;
+  String? _previewVoiceId;
+
+  /// Plays one adhan voice for the Adhan voice screen.
+  ///
+  /// Through THIS player on purpose: just_audio_background allows a single
+  /// player in the app, so a preview cannot have its own. Whatever surah was
+  /// loaded is released; the Quran reader builds its queue again on its next
+  /// play, exactly as after stop().
+  Future<void> previewAdhan({
+    required String voiceId,
+    required Uri uri,
+    required String title,
+  }) async {
+    await _player.stop();
+    _content = null;
+    _loadedReciter = null;
+    _previewVoiceId = voiceId;
+
+    try {
+      await _player.setLoopMode(LoopMode.off);
+      await _player.setAudioSource(
+        AudioSource.uri(
+          uri,
+          tag: MediaItem(id: 'adhan:$voiceId', title: title, artist: 'Niya'),
+        ),
+      );
+      await _player.play();
+    } catch (e) {
+      logger('Adhan preview failed for $voiceId — $e');
+      _previewVoiceId = null;
+      rethrow;
+    }
+  }
+
+  /// Stops an adhan preview, if one is playing.
+  Future<void> stopAdhanPreview() async {
+    if (_previewVoiceId == null) return;
+    _previewVoiceId = null;
+    await _player.stop();
   }
 
   /// Only called when the app itself is shutting down. Screens must not call

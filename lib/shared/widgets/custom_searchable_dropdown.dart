@@ -142,7 +142,7 @@ class _CustomSearchableDropdownState extends State<CustomSearchableDropdown> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final primaryBrandColor = appColors.primaryColor;
 
-    const Color darkBorder = Color(0xFF38434F);
+    const Color darkBorder = Color(0xFF3A3436);
     const Color darkText = Colors.white;
     const Color darkHint = Colors.white38;
 

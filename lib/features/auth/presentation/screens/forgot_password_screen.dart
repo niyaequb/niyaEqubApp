@@ -60,18 +60,17 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     return Scaffold(
       backgroundColor: appColors.scaffoldBackgroundColor,
+      // Maroon, like every header in the app (AppBarTheme).
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: appColors.titleTextColor),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: CustomText(
           title: "reset_password_title".tr,
           fontSize: 18.sp,
-          textColor: appColors.titleTextColor,
+          textColor: Colors.white,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -178,7 +177,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
                       submitting: state is AuthResetPasswordLoading,
                       label: "update_password".tr,
                       height: 50.h,
-                      backgroundColor: appColors.primaryColor,
+                      backgroundColor: appColors.buttonColor,
                       onPressed: _handleResetPassword,
                     );
                   },
@@ -216,7 +215,10 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           },
       decoration: InputDecoration(
         labelText: label,
-        labelStyle: TextStyle(color: Colors.grey, fontSize: 14.sp),
+        labelStyle: TextStyle(
+          color: appColors.bodyTextSmallColor,
+          fontSize: 14.sp,
+        ),
         prefixIcon: Icon(
           Icons.lock_outline,
           size: 20,
@@ -226,7 +228,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           icon: Icon(
             obscure ? Icons.visibility_off : Icons.visibility,
             size: 20,
-            color: Colors.grey,
+            color: appColors.bodyTextSmallColor,
           ),
           onPressed: onToggle,
         ),

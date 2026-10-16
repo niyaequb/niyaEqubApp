@@ -26,7 +26,7 @@ class AzkarData {
     titleAr: '',
     subtitleEn: 'Recited after Fajr until sunrise',
     imagePath: 'assets/images/ibada/azkar_1.png',
-    accent: const Color(0xFFF59E0B),
+    accent: const Color(0xFF8E1B32), // Niya maroon
     items: [
       Dhikr(
         arabic:
@@ -238,7 +238,7 @@ class AzkarData {
     titleAr: '',
     subtitleEn: 'Recited after Asr until Maghrib',
     imagePath: 'assets/images/ibada/azkar_2.png',
-    accent: const Color(0xFF6366F1),
+    accent: const Color(0xFF8E1B32), // Niya maroon
     items: [
       Dhikr(
         arabic:
@@ -329,7 +329,7 @@ class AzkarData {
     titleAr: '',
     subtitleEn: 'Said after each obligatory salah',
     imagePath: 'assets/images/ibada/azkar_3.png',
-    accent: const Color(0xFF10B981),
+    accent: const Color(0xFF8E1B32), // Niya maroon
     items: [
       Dhikr(
         arabic: 'أَسْتَغْفِرُ اللَّهَ',
@@ -416,7 +416,7 @@ class AzkarData {
     titleAr: '',
     subtitleEn: 'Said when going to bed',
     imagePath: 'assets/images/ibada/azkar_4.png',
-    accent: const Color(0xFF8B5CF6),
+    accent: const Color(0xFF8E1B32), // Niya maroon
     items: [
       Dhikr(
         arabic: 'بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا',
@@ -474,7 +474,7 @@ class AzkarData {
     titleAr: '',
     subtitleEn: 'Said on waking from sleep',
     imagePath: 'assets/images/ibada/azkar_5.png',
-    accent: const Color(0xFFEC4899),
+    accent: const Color(0xFF8E1B32), // Niya maroon
     items: [
       Dhikr(
         arabic:
@@ -506,7 +506,7 @@ class AzkarData {
     titleAr: '',
     subtitleEn: 'For worry, grief and hardship',
     imagePath: 'assets/images/ibada/azkar_6.png',
-    accent: const Color(0xFFEF4444),
+    accent: const Color(0xFF8E1B32), // Niya maroon
     items: [
       Dhikr(
         arabic:
@@ -562,7 +562,7 @@ class AzkarData {
     titleAr: '',
     subtitleEn: 'Short remembrances for any time',
     imagePath: 'assets/images/ibada/azkar_7.png',
-    accent: const Color(0xFF0EA5E9),
+    accent: const Color(0xFF8E1B32), // Niya maroon
     items: [
       Dhikr(
         arabic:

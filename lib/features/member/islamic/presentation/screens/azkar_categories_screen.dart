@@ -228,7 +228,7 @@ class AzkarCategoriesScreen extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 9.5.sp,
                       fontWeight: FontWeight.w600,
-                      color: category.accent,
+                      color: IslamicColors.readableOf(context, category.accent),
                     ),
                   ),
                 ],

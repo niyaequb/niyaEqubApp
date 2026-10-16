@@ -27,6 +27,7 @@ import 'package:niya_equb/shared/widgets/custom_password_field.dart';
 import 'package:niya_equb/shared/widgets/custom_text_field.dart';
 import 'package:niya_equb/shared/widgets/custom_searchable_dropdown.dart';
 import 'package:niya_equb/shared/widgets/rounded_button.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 import 'package:niya_equb/features/member/settings/state/settings_bloc.dart';
 import 'package:niya_equb/features/member/settings/state/settings_state.dart';
 import 'package:niya_equb/features/member/settings/data/models/settings_model.dart';
@@ -221,7 +222,6 @@ class _EkubProfileScreenState extends State<EkubProfileScreen> {
                       child: Row(
                         children: [
                           _ProfileAvatar(
-                            isLoading: isLoading,
                             imageUrl: user?.profilePicture,
                             headers: headers,
                             fallbackInitial: name.isNotEmpty
@@ -255,7 +255,10 @@ class _EkubProfileScreenState extends State<EkubProfileScreen> {
                                         textOverflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    if (isLoading)
+                                    // Only when there is nothing saved to show
+                                    // yet. A refresh of a profile already on
+                                    // screen happens quietly behind it.
+                                    if (isLoading && user == null)
                                       Padding(
                                         padding: EdgeInsets.only(left: 10.w),
                                         child: SizedBox(
@@ -469,9 +472,9 @@ class _EkubProfileScreenState extends State<EkubProfileScreen> {
                         label: 'log_out'.tr,
                         height: 48.h,
                         backgroundColor: appColors.accentColor,
-                        foregroundColor: Colors.redAccent,
+                        foregroundColor: niya(context).danger,
                         borderSide: BorderSide(
-                          color: Colors.redAccent,
+                          color: niya(context).danger,
                           width: 1.5,
                         ),
                         onPressed: isLoading
@@ -489,7 +492,7 @@ class _EkubProfileScreenState extends State<EkubProfileScreen> {
                       RoundedButton(
                         label: 'delete_account'.tr,
                         height: 48.h,
-                        backgroundColor: Colors.red,
+                        backgroundColor: NiyaPalette.danger,
                         foregroundColor: Colors.white,
                         onPressed: isLoading
                             ? null
@@ -860,10 +863,8 @@ Future<void> _showEditProfileSheetImpl(
                                   RoundedButton(
                                     submitting: submitting,
                                     label: 'save_changes'.tr,
-                                    backgroundColor: appColors.primaryColor,
-                                    foregroundColor: Colors.black.withValues(
-                                      alpha: 0.85,
-                                    ),
+                                    backgroundColor: appColors.buttonColor,
+                                    foregroundColor: Colors.white,
                                     onPressed: () {
                                       final password = passwordCtrl.text.trim();
                                       if (password.isNotEmpty &&
@@ -948,10 +949,12 @@ Future<bool?> _confirmLogout(BuildContext context) {
               height: 56.r,
               width: 56.r,
               decoration: BoxDecoration(
-                color: Colors.redAccent.withValues(alpha: isDark ? 0.18 : 0.12),
+                color: niya(context).danger.withValues(
+                  alpha: isDark ? 0.18 : 0.12,
+                ),
                 borderRadius: BorderRadius.circular(18.r),
               ),
-              child: const Icon(Icons.logout_rounded, color: Colors.redAccent),
+              child: Icon(Icons.logout_rounded, color: niya(context).danger),
             ),
             SizedBox(height: 14.h),
             CustomText(
@@ -988,7 +991,7 @@ Future<bool?> _confirmLogout(BuildContext context) {
                   child: RoundedButton(
                     label: 'log_out'.tr,
                     height: 42.h,
-                    backgroundColor: Colors.redAccent,
+                    backgroundColor: NiyaPalette.danger,
                     foregroundColor: Colors.white,
                     onPressed: () => Navigator.pop(context, true),
                   ),
@@ -1042,12 +1045,12 @@ void _confirmDeleteAccount(BuildContext context) {
                   Container(
                     padding: EdgeInsets.all(16.r),
                     decoration: BoxDecoration(
-                      color: Colors.red.withValues(alpha: 0.1),
+                      color: niya(context).danger.withValues(alpha: 0.1),
                       shape: BoxShape.circle,
                     ),
                     child: Icon(
                       Icons.warning_rounded,
-                      color: Colors.red,
+                      color: niya(context).danger,
                       size: 32.sp,
                     ),
                   ),
@@ -1088,7 +1091,7 @@ void _confirmDeleteAccount(BuildContext context) {
                         child: RoundedButton(
                           label: 'delete'.tr,
                           height: 42.h,
-                          backgroundColor: Colors.red,
+                          backgroundColor: NiyaPalette.danger,
                           foregroundColor: Colors.white,
                           submitting: isLoading,
                           onPressed: () {
@@ -1110,6 +1113,10 @@ void _confirmDeleteAccount(BuildContext context) {
   );
 }
 
+/// [color] as a CSS colour, for the documents drawn in a WebView.
+String _cssHex(Color color) =>
+    '#${(color.toARGB32() & 0xFFFFFF).toRadixString(16).padLeft(6, '0')}';
+
 void _showTextSheet(
   BuildContext context, {
   required String title,
@@ -1118,11 +1125,16 @@ void _showTextSheet(
   final appColors = colors(context);
   final isDark = Theme.of(context).brightness == Brightness.dark;
   final maxHeight = MediaQuery.sizeOf(context).height * 0.88;
+  final skin = niya(context);
 
-  final bgColor = isDark ? '#1a1a1a' : '#ffffff';
-  final textColor = isDark ? '#e0e0e0' : '#1a1a1a';
-  final headingColor = isDark ? '#ffffff' : '#111111';
-  final hrColor = isDark ? '#333333' : '#e0e0e0';
+  // The document is drawn on the sheet's own colour, so there is no second
+  // box inside the sheet, and in the app's ink with maroon links.
+  final sheet = appColors.scaffoldBackgroundColor ?? skin.page;
+  final bgColor = _cssHex(sheet);
+  final textColor = _cssHex(skin.inkSoft);
+  final headingColor = _cssHex(skin.ink);
+  final hrColor = _cssHex(skin.line);
+  final linkColor = _cssHex(skin.accent);
 
   final html =
       '''
@@ -1149,7 +1161,7 @@ void _showTextSheet(
     li { margin-bottom: 4px; }
     strong { font-weight: 700; color: $headingColor; }
     hr { border: none; border-top: 1px solid $hrColor; margin: 16px 0; }
-    a { color: #4a9eff; }
+    a { color: $linkColor; }
   </style>
 </head>
 <body>$content</body>
@@ -1158,7 +1170,7 @@ void _showTextSheet(
 
   final controller = WebViewController()
     ..setJavaScriptMode(JavaScriptMode.unrestricted)
-    ..setBackgroundColor(Color(isDark ? 0xFF1a1a1a : 0xFFffffff))
+    ..setBackgroundColor(sheet)
     ..loadHtmlString(html);
 
   showModalBottomSheet(
@@ -1375,7 +1387,7 @@ void _showSocialMediaSheet(
       case 'linkedin':
         return const Color(0xFF0A66C2);
       default:
-        return const Color(0xFF6C63FF);
+        return const Color(0xFF8E1B32);
     }
   }
 
@@ -1602,10 +1614,8 @@ void _showLanguageSheet(BuildContext context) {
                           RoundedButton(
                             label: 'done'.tr,
                             height: 46.h,
-                            backgroundColor: appColors.primaryColor,
-                            foregroundColor: Colors.black.withValues(
-                              alpha: 0.85,
-                            ),
+                            backgroundColor: appColors.buttonColor,
+                            foregroundColor: Colors.white,
                             onPressed: () => Navigator.pop(context),
                           ),
                         ],
@@ -2168,14 +2178,12 @@ class _LangOption extends StatelessWidget {
 }
 
 class _ProfileAvatar extends StatelessWidget {
-  final bool isLoading;
   final String? imageUrl;
   final Map<String, String>? headers;
   final String fallbackInitial;
   final VoidCallback? onTapEdit;
 
   const _ProfileAvatar({
-    required this.isLoading,
     required this.imageUrl,
     required this.headers,
     required this.fallbackInitial,
@@ -2204,9 +2212,10 @@ class _ProfileAvatar extends StatelessWidget {
               ),
             ),
             clipBehavior: Clip.antiAlias,
-            child: isLoading
-                ? const SizedBox.shrink()
-                : (imageUrl != null && imageUrl!.trim().isNotEmpty)
+            // The saved picture, or the initials, from the first frame — also
+            // while the profile refreshes. This used to be an empty circle
+            // until the request finished, on every visit to the tab.
+            child: (imageUrl != null && imageUrl!.trim().isNotEmpty)
                 ? Image.network(
                     imageUrl!,
                     fit: BoxFit.cover,

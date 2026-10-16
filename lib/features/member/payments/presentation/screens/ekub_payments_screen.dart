@@ -96,8 +96,8 @@ class EkubPaymentsScreen extends StatelessWidget {
               child: RoundedButton(
                 label: 'pay_now'.tr,
                 height: 50.h,
-                backgroundColor: appColors.primaryColor,
-                foregroundColor: Colors.black.withValues(alpha: 0.85),
+                backgroundColor: appColors.buttonColor,
+                foregroundColor: Colors.white,
                 onPressed: () => _showPaySheet(context),
               ),
             ),
@@ -173,8 +173,8 @@ class EkubPaymentsScreen extends StatelessWidget {
                         RoundedButton(
                           label: 'ok'.tr,
                           height: 46.h,
-                          backgroundColor: appColors.primaryColor,
-                          foregroundColor: Colors.black.withValues(alpha: 0.85),
+                          backgroundColor: appColors.buttonColor,
+                          foregroundColor: Colors.white,
                           onPressed: () => Navigator.pop(context),
                         ),
                       ],
@@ -315,7 +315,7 @@ class _PaymentTile extends StatelessWidget {
 
     final color = switch (item.status) {
       EkubPaymentStatus.paid => Colors.green,
-      EkubPaymentStatus.pending => Colors.blue,
+      EkubPaymentStatus.pending => appColors.primaryColor ?? Colors.blue,
       EkubPaymentStatus.unpaid => Colors.orange, // or Red for past due
       EkubPaymentStatus.future => Colors.blueGrey,
     };

@@ -389,7 +389,7 @@ class _TasbihScreenState extends State<TasbihScreen>
               style: TextStyle(
                 fontSize: 16.sp,
                 fontWeight: FontWeight.w800,
-                color: IslamicColors.featureTasbih,
+                color: IslamicColors.readable(context),
               ),
             ),
           ),

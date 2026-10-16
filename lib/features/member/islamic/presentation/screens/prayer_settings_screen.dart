@@ -1,3 +1,5 @@
+import 'dart:io' show Platform;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
@@ -5,8 +7,11 @@ import 'package:get/get.dart';
 import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/features/member/islamic/logic/prayer_calculator.dart';
 import 'package:niya_equb/features/member/islamic/presentation/islamic_theme.dart';
+import 'package:niya_equb/features/member/islamic/presentation/screens/azan_voices_screen.dart';
 import 'package:niya_equb/features/member/islamic/presentation/widgets/mosque_mode_card.dart';
 import 'package:niya_equb/features/member/islamic/services/azan_notification_service.dart';
+import 'package:niya_equb/features/member/islamic/services/azan_voices.dart';
+import 'package:niya_equb/features/member/islamic/services/islamic_prefs.dart';
 import 'package:niya_equb/features/member/islamic/state/islamic_center_bloc.dart';
 import 'package:niya_equb/features/member/islamic/state/islamic_center_event.dart';
 import 'package:niya_equb/features/member/islamic/state/islamic_center_state.dart';
@@ -315,6 +320,53 @@ class PrayerSettingsScreen extends StatelessWidget {
             );
           }).toList(),
         ),
+        SizedBox(height: 4.h),
+        const _AdhanVoiceRow(),
+        // How long the adhan plays: a few seconds for those who only want the
+        // call, the whole recording for those who want to hear it out.
+        //
+        // Android only. It works by having the system stop the notification
+        // (and with it the sound) after this long; an iPhone plays a
+        // notification sound to its end and cannot be told otherwise, so
+        // offering the choice there would be a switch that does nothing.
+        if (Platform.isAndroid) ...[
+          SizedBox(height: 10.h),
+          Text(
+            'adhan_length'.tr,
+            style: TextStyle(
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w600,
+              color: appColors.titleTextColor,
+            ),
+          ),
+          SizedBox(height: 3.h),
+          Text(
+            'adhan_length_hint'.tr,
+            style: TextStyle(
+              fontSize: 10.sp,
+              height: 1.4,
+              color: appColors.bodyTextSmallColor,
+            ),
+          ),
+          SizedBox(height: 6.h),
+          Wrap(
+            spacing: 7.w,
+            runSpacing: 7.h,
+            children: IslamicPrefs.azanPlayOptions.map((seconds) {
+              return ChoiceChip(
+                label: Text(
+                  _playLengthLabel(seconds),
+                  style: TextStyle(fontSize: 10.5.sp),
+                ),
+                selected: state.azanPlaySeconds == seconds,
+                selectedColor: IslamicColors.primary.withValues(alpha: 0.2),
+                onSelected: (_) => context.read<IslamicCenterBloc>().add(
+                  IslamicCenterUpdateAlertPrefsEvent(azanPlaySeconds: seconds),
+                ),
+              );
+            }).toList(),
+          ),
+        ],
         SizedBox(height: 12.h),
         // Two buttons rather than one, because they exercise two completely
         // different code paths and only one of them can catch a release
@@ -389,7 +441,13 @@ class PrayerSettingsScreen extends StatelessWidget {
     );
   }
 
-  
+  /// "10 sec", "1 min" or "Full adhan" for an Adhan length chip.
+  String _playLengthLabel(int seconds) {
+    if (seconds <= 0) return 'adhan_full'.tr;
+    if (seconds % 60 == 0) return '${seconds ~/ 60} ${'min'.tr}';
+    return '$seconds ${'sec'.tr}';
+  }
+
   Widget _calculationSection(
     BuildContext context,
     dynamic appColors,
@@ -508,7 +566,7 @@ class PrayerSettingsScreen extends StatelessWidget {
                 fontSize: 12.sp,
                 fontWeight: FontWeight.w700,
                 color: selected
-                    ? IslamicColors.primary
+                    ? IslamicColors.readable(context)
                     : appColors.titleTextColor,
               ),
             ),
@@ -571,7 +629,7 @@ class PrayerSettingsScreen extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                     color: value == 0
                         ? appColors.bodyTextSmallColor
-                        : IslamicColors.primary,
+                        : IslamicColors.readable(context),
                   ),
                 ),
               ),
@@ -651,7 +709,7 @@ class PrayerSettingsScreen extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12.5.sp,
                   fontWeight: FontWeight.w700,
-                  color: IslamicColors.primary,
+                  color: IslamicColors.readable(context),
                 ),
               ),
             ),
@@ -678,7 +736,7 @@ class PrayerSettingsScreen extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                   color: state.hijriOffset == 0
                       ? appColors.bodyTextSmallColor
-                      : IslamicColors.primary,
+                      : IslamicColors.readable(context),
                 ),
               ),
             ),
@@ -709,6 +767,73 @@ class PrayerSettingsScreen extends StatelessWidget {
           color: appColors.bodyTextSmallColor?.withValues(alpha: 0.85),
         ),
       ),
+    );
+  }
+}
+
+/// "Adhan voice" in the alert section: the voice in use, and the way to the
+/// screen where voices are heard, downloaded and chosen.
+class _AdhanVoiceRow extends StatefulWidget {
+  const _AdhanVoiceRow();
+
+  @override
+  State<_AdhanVoiceRow> createState() => _AdhanVoiceRowState();
+}
+
+class _AdhanVoiceRowState extends State<_AdhanVoiceRow> {
+  String? _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _read();
+  }
+
+  Future<void> _read() async {
+    final id = await IslamicPrefs.getAzanVoiceId();
+    String? name;
+    if (id != AzanVoices.builtInId) {
+      name = (await IslamicPrefs.getAzanVoiceSound(id))?['name']?.toString();
+    }
+    if (mounted) setState(() => _current = name ?? 'adhan_voice_builtin'.tr);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final appColors = colors(context);
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      dense: true,
+      leading: Icon(
+        Icons.record_voice_over_rounded,
+        color: IslamicColors.readable(context),
+        size: 22.sp,
+      ),
+      title: Text(
+        'adhan_voice'.tr,
+        style: TextStyle(
+          fontSize: 12.5.sp,
+          fontWeight: FontWeight.w600,
+          color: appColors.titleTextColor,
+        ),
+      ),
+      subtitle: Text(
+        _current ?? '',
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(fontSize: 10.5.sp, color: appColors.bodyTextSmallColor),
+      ),
+      trailing: Icon(
+        Icons.chevron_right_rounded,
+        color: appColors.bodyTextSmallColor,
+      ),
+      onTap: () async {
+        await Navigator.of(context).push(
+          MaterialPageRoute<void>(builder: (_) => const AzanVoicesScreen()),
+        );
+        await _read();
+      },
     );
   }
 }

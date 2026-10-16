@@ -19,6 +19,20 @@ class AppCache {
 
   static Box? _box;
 
+  /// Entries that are the same for every account: the home banners, the
+  /// app's settings and its FAQ. They survive [clear], so they are on screen
+  /// from the first frame after any sign-in — banners included, which used
+  /// to come back as empty cards after every one.
+  static const Set<String> _sharedKeys = {
+    CacheKeys.promotions,
+    CacheKeys.appSettings,
+    CacheKeys.faqs,
+  };
+
+  /// Which account the per-member entries belong to. Kept in the same box,
+  /// so it is wiped together with them.
+  static const String _ownerKey = 'app:cache-owner';
+
   static bool get isReady => _box?.isOpen == true;
 
   /// Opens the cache box. Call once from `main()` after `Hive.initFlutter()`.
@@ -100,13 +114,37 @@ class AppCache {
     } catch (_) {}
   }
 
-  /// Wipes every cached response. Called on logout and account deletion so the
-  /// next person to sign in on this phone never sees the previous account's
-  /// groups, payments or settings.
+  /// Called on every sign-in, BEFORE the new session is stored, with the
+  /// account that is signing in (its phone number).
+  ///
+  /// The same account signing in again keeps everything. Anyone else — or a
+  /// sign-in that cannot say who it is — starts from an empty cache, so a
+  /// member never sees the previous account's groups or payments.
+  ///
+  /// WHY NOT SIMPLY CLEAR: the mini app inside the Dashen SuperApp often
+  /// starts without its stored session and signs the member in again through
+  /// the SuperApp. Each of those sign-ins used to wipe the cache, so every
+  /// launch opened on spinners and empty cards although the member's own
+  /// data was sitting on the device.
+  static Future<void> useAccount(String? account) async {
+    if (!isReady) return;
+    final owner = account?.trim() ?? '';
+    try {
+      if (owner.isNotEmpty && _box!.get(_ownerKey) == owner) return;
+      await clear();
+      if (owner.isNotEmpty) await _box!.put(_ownerKey, owner);
+    } catch (_) {}
+  }
+
+  /// Wipes every account's cached responses (everything except the shared
+  /// entries above). Called on logout and account deletion so the next person
+  /// to sign in on this phone never sees the previous account's groups,
+  /// payments or settings.
   static Future<void> clear() async {
     if (!isReady) return;
     try {
-      await _box!.clear();
+      final keys = _box!.keys.where((k) => !_sharedKeys.contains(k)).toList();
+      await _box!.deleteAll(keys);
     } catch (_) {}
   }
 }

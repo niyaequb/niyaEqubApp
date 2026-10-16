@@ -33,7 +33,7 @@ class ResponsibilityPeopleScreen extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => NiyaNightTheme(
+  Widget build(BuildContext context) => NiyaBrandTheme(
     child: _ResponsibilityPeopleView(
       groupId: groupId,
       contributionAmount: contributionAmount,
@@ -115,7 +115,7 @@ class _ResponsibilityPeopleViewState extends State<_ResponsibilityPeopleView> {
     final data = _data;
     final canAdd = data != null && data.canAdd && !data.isAtLimit;
 
-    return NiyaNightScaffold(
+    return NiyaScaffold(
       title: 'my_responsibility_people'.tr,
       // Hands the "something changed" flag back to the group screen, which
       // reloads its head-count and ledger on a true. A system back gesture
@@ -126,7 +126,7 @@ class _ResponsibilityPeopleViewState extends State<_ResponsibilityPeopleView> {
         icon: Icon(
           Icons.arrow_back_rounded,
           size: 21.r,
-          color: NiyaPalette.goldLight,
+          color: Colors.white,
         ),
       ),
       bottomBar: canAdd ? _bottomBar : null,
@@ -134,7 +134,7 @@ class _ResponsibilityPeopleViewState extends State<_ResponsibilityPeopleView> {
     );
   }
 
-  Widget _bottomBar(BuildContext context) => NiyaGoldButton(
+  Widget _bottomBar(BuildContext context) => NiyaPrimaryButton(
     label: 'add_a_person'.tr,
     icon: Icons.person_add_alt_rounded,
     busy: _busy,
@@ -173,8 +173,8 @@ class _ResponsibilityPeopleViewState extends State<_ResponsibilityPeopleView> {
         .toList(growable: false);
 
     return RefreshIndicator(
-      color: NiyaPalette.gold,
-      backgroundColor: NiyaPalette.navy,
+      color: niya(context).accent,
+      backgroundColor: niya(context).paper,
       edgeOffset: topInset,
       onRefresh: () => _load(silent: true),
       child: ListView(
@@ -237,7 +237,7 @@ class _ResponsibilityPeopleViewState extends State<_ResponsibilityPeopleView> {
                 icon: Icons.groups_rounded,
                 trailing: NiyaPill(
                   label: '${others.length}',
-                  color: NiyaPalette.goldLight,
+                  color: niya(context).accent,
                 ),
               ),
               SizedBox(height: 10.h),
@@ -261,9 +261,9 @@ class _ResponsibilityPeopleViewState extends State<_ResponsibilityPeopleView> {
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 12.h),
       decoration: BoxDecoration(
-        color: tint.withValues(alpha: 0.16),
+        color: tint.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: tint.withValues(alpha: 0.4)),
+        border: Border.all(color: tint.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -280,7 +280,7 @@ class _ResponsibilityPeopleViewState extends State<_ResponsibilityPeopleView> {
                 'days': '$_days',
               }),
               style: TextStyle(
-                color: Colors.white,
+                color: niya(context).ink,
                 fontSize: 11.sp,
                 fontWeight: FontWeight.w500,
                 height: 1.3,

@@ -173,9 +173,13 @@ class _EkubMainScreenState extends State<EkubMainScreen> with AppUpdateGate {
                     selectedIcon: const Icon(Icons.mosque_rounded),
                     label: 'nav_islamic_center'.tr,
                   ),
+                  // A person, not a gear: the tab opens the member's profile
+                  // (name, phone and email first, then preferences), and a
+                  // gear labelled Profile reads as the wrong page. The mini
+                  // app made the same change after Dashen's QA.
                   NavigationDestination(
-                    icon: const Icon(Icons.settings_rounded),
-                    selectedIcon: const Icon(Icons.settings_rounded),
+                    icon: const Icon(Icons.person_outline_rounded),
+                    selectedIcon: const Icon(Icons.person_rounded),
                     label: 'nav_profile'.tr,
                   ),
                 ],

@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.provider.Settings
 import com.ryanheise.audioservice.AudioServiceActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 /**
@@ -41,6 +42,8 @@ class MainActivity : AudioServiceActivity() {
         const val CHANNEL = "com.niyaet.ekub/mosque_mode"
         const val CRASH_CHANNEL = "com.niyaet.ekub/crash"
         const val APPS_CHANNEL = "com.niyaet.ekub/external_apps"
+        const val HEADING_CHANNEL = "com.niyaet.ekub/heading"
+        const val AZAN_SOUNDS_CHANNEL = "com.niyaet.ekub/azan_sounds"
     }
 
     /**
@@ -149,6 +152,52 @@ class MainActivity : AudioServiceActivity() {
                         result.success(pkg.isNotEmpty() && launchIntentFor(pkg) != null)
 
                     "open" -> result.success(pkg.isNotEmpty() && openApp(pkg))
+
+                    else -> result.notImplemented()
+                }
+            }
+
+        // Qibla: a fused, calibrated compass heading measured from TRUE north.
+        // See HeadingStream.kt and lib/features/member/islamic/services/
+        // compass_heading.dart.
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, HEADING_CHANNEL)
+            .setStreamHandler(HeadingStream(this))
+
+        // Adhan voices: makes a downloaded voice playable as the adhan
+        // notification's sound. See AzanSounds.kt.
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, AZAN_SOUNDS_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "isSupported" -> result.success(AzanSounds.isSupported)
+
+                    "publish" -> {
+                        val path = call.argument<String>("path").orEmpty()
+                        val fileName = call.argument<String>("fileName").orEmpty()
+                        val title = call.argument<String>("title").orEmpty()
+                        val context = applicationContext
+                        // A copy of a few megabytes: kept off the main thread.
+                        Thread {
+                            val uri = try {
+                                AzanSounds.publish(context, path, fileName, title)
+                            } catch (e: Exception) {
+                                null
+                            }
+                            runOnUiThread { result.success(uri) }
+                        }.start()
+                    }
+
+                    "unpublish" -> {
+                        val fileName = call.argument<String>("fileName").orEmpty()
+                        val context = applicationContext
+                        Thread {
+                            try {
+                                AzanSounds.unpublish(context, fileName)
+                            } catch (e: Exception) {
+                                // Nothing to remove.
+                            }
+                            runOnUiThread { result.success(true) }
+                        }.start()
+                    }
 
                     else -> result.notImplemented()
                 }

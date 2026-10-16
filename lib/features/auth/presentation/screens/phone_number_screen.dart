@@ -82,18 +82,17 @@ class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
 
     return Scaffold(
       backgroundColor: appColors.scaffoldBackgroundColor,
+      // Maroon, like every header in the app (AppBarTheme).
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: appColors.titleTextColor),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: CustomText(
           title: "phone_number".tr,
           fontSize: 18.sp,
-          textColor: appColors.titleTextColor,
+          textColor: Colors.white,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -194,7 +193,7 @@ class _PhoneNumberScreenState extends State<PhoneNumberScreen> {
                       submitting: state is AuthRequestOtpLoading || isChecking,
                       label: "send_code".tr,
                       height: 50.h,
-                      backgroundColor: appColors.primaryColor,
+                      backgroundColor: appColors.buttonColor,
                       onPressed: _navigateToOtp,
                     );
                   },

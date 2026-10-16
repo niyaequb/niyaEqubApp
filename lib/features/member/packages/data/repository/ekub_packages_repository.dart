@@ -10,6 +10,7 @@ import 'package:niya_equb/core/service/dio_error_handler.dart';
 import 'package:niya_equb/core/service/exceptions.dart';
 import 'package:niya_equb/core/service/payments/payment_bridge.dart';
 import 'package:niya_equb/core/util/logger.dart';
+import 'package:niya_equb/core/util/package_names.dart';
 
 typedef ResultFuture<T> = Future<Either<Failure, T>>;
 
@@ -109,7 +110,7 @@ class EkubPackagesRepository {
       }
       final list = _unwrapList(result.data, ['packages']);
       unawaited(AppCache.write(CacheKeys.equbPackages, list));
-      return Right(_parse(list, EqubPackage.fromJson));
+      return Right(_inListOrder(_parse(list, EqubPackage.fromJson)));
     } on DioException catch (e) {
       return Left(ServerFailure(handleDioError(e), e.response?.statusCode));
     } catch (e) {
@@ -119,8 +120,26 @@ class EkubPackagesRepository {
 
   /// Last known packages, straight off disk. Lets the Equb tab draw its filter
   /// chips on the first frame instead of after a round trip.
-  List<EqubPackage>? cachedPackages() =>
-      _readCached(CacheKeys.equbPackages, EqubPackage.fromJson);
+  List<EqubPackage>? cachedPackages() {
+    final cached = _readCached(CacheKeys.equbPackages, EqubPackage.fromJson);
+    return cached == null ? null : _inListOrder(cached);
+  }
+
+  /// The official order — Al-Sabr, Al-Nur, Iman, Raha, Special Ramadan, Hajj —
+  /// then any other package in the order the server sent it. The server
+  /// sorts the same way; this keeps a saved list, or an older server, right.
+  static List<EqubPackage> _inListOrder(List<EqubPackage> packages) {
+    // Paired with their position so equal ranks keep the server's order
+    // (List.sort is not guaranteed to be stable).
+    final indexed = [
+      for (var i = 0; i < packages.length; i++) (i, packages[i]),
+    ];
+    indexed.sort((a, b) {
+      final byRank = packageRank(a.$2.name).compareTo(packageRank(b.$2.name));
+      return byRank != 0 ? byRank : a.$1.compareTo(b.$1);
+    });
+    return [for (final (_, p) in indexed) p];
+  }
 
   /// Fetches equb groups from api/member/equb-groups
   ResultFuture<List<EqubGroup>> fetchEqubGroups({int? packageId}) async {
@@ -1083,10 +1102,21 @@ class EqubMembership {
     );
   }
 
-  String? get groupName =>
-      equbGroup?.name ??
-      equbGroup?.packageName ??
-      'Equb #${equbGroupId ?? id}';
+  /// The plan's name as a member reads it, in the app's language (see
+  /// planDisplayName), or "Equb #12" when the payload carries no name at all.
+  String? get groupName {
+    final group = equbGroup;
+    final hasName =
+        (group?.name ?? '').trim().isNotEmpty ||
+        (group?.package?.name ?? '').trim().isNotEmpty;
+    if (group == null || !hasName) return 'Equb #${equbGroupId ?? id}';
+
+    return planDisplayName(
+      name: group.name,
+      packageName: group.package?.name,
+      frequencyDays: group.contributionFrequencyDays,
+    );
+  }
 
   /// Whether to offer the Leave button.
   ///

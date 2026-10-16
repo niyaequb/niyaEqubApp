@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:niya_equb/core/config/app_color.dart';
+import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/shared/widgets/custom_text.dart';
 
 /// The app's primary button.
@@ -75,8 +77,21 @@ class _RoundedButtonState extends State<RoundedButton> {
 
   @override
   Widget build(BuildContext context) {
-    final foreground =
-        widget.foregroundColor ?? Colors.black.withValues(alpha: .7);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final enabled = !widget.submitting && widget.onPressed != null;
+    // The button's label is white, so its ground is the theme's fill maroon —
+    // brighter than the logo maroon in dark mode, which would sink into the
+    // page.
+    final ground = colors(context).buttonColor ?? AppStaticColor.primary;
+
+    // While submitting the button keeps its colour and shows a spinner in the
+    // label colour. Only a button that cannot be pressed at all greys out,
+    // and then its label greys out with it — white on the grey ground would
+    // vanish.
+    final foreground = enabled || widget.submitting
+        ? (widget.foregroundColor ?? Colors.white)
+        : (widget.disabledForegroundColor ??
+              (isDark ? Colors.white38 : Colors.black38));
 
     return Container(
       margin: widget.margin,
@@ -90,21 +105,13 @@ class _RoundedButtonState extends State<RoundedButton> {
           backgroundColor: WidgetStateProperty.resolveWith<Color?>((
             Set<WidgetState> states,
           ) {
-            if (states.contains(WidgetState.disabled)) {
+            if (states.contains(WidgetState.disabled) && !widget.submitting) {
               return widget.disabledBackgroundColor ??
                   Colors.grey.withValues(alpha: .12);
             }
-            return widget.backgroundColor ?? Colors.blue;
+            return widget.backgroundColor ?? ground;
           }),
-          foregroundColor: WidgetStateProperty.resolveWith<Color?>((
-            Set<WidgetState> states,
-          ) {
-            if (states.contains(WidgetState.disabled)) {
-              return widget.disabledForegroundColor ??
-                  Colors.black.withValues(alpha: .3);
-            }
-            return foreground;
-          }),
+          foregroundColor: WidgetStatePropertyAll(foreground),
           padding: WidgetStateProperty.all(widget.padding),
           elevation: WidgetStateProperty.all(widget.elevation),
           shape: WidgetStateProperty.all(
@@ -116,11 +123,11 @@ class _RoundedButtonState extends State<RoundedButton> {
           overlayColor: WidgetStateProperty.resolveWith<Color?>((
             Set<WidgetState> states,
           ) {
+            // A shade darker while pressed: maroon goes to the deep maroon
+            // of the brand.
             if (states.contains(WidgetState.pressed) ||
                 states.contains(WidgetState.hovered)) {
-              return (widget.foregroundColor ?? Colors.black).withValues(
-                alpha: 0.3,
-              );
+              return Colors.black.withValues(alpha: 0.16);
             }
             return null;
           }),

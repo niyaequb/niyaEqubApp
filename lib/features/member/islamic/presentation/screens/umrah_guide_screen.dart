@@ -3,6 +3,7 @@ import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
 import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/features/member/islamic/data/static/umrah_data.dart';
+import 'package:niya_equb/features/member/islamic/presentation/islamic_theme.dart';
 import 'package:niya_equb/features/member/islamic/presentation/screens/umrah_dua_categories_screen.dart';
 
 /// The Umrah guide.
@@ -33,8 +34,8 @@ class UmrahGuideScreen extends StatefulWidget {
 }
 
 class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
-  static const Color _accent = Color.fromARGB(255, 235, 152, 10);
-  static const Color _deep = Color(0xFF1F6F4A);
+  static const Color _accent = IslamicColors.primary;
+  static const Color _deep = IslamicColors.primaryDark;
 
   final Set<int> _open = {0};
 
@@ -201,7 +202,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
                     style: TextStyle(
                       fontSize: 19.sp,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFFF3CE7B),
+                      color: Colors.white,
                       shadows: const [
                         Shadow(color: Colors.black54, blurRadius: 8),
                       ],
@@ -269,7 +270,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
                 child: Icon(
                   Icons.auto_stories_rounded,
                   size: 18.sp,
-                  color: _deep,
+                  color: IslamicColors.readableOf(context, _deep),
                 ),
               ),
               SizedBox(width: 11.w),
@@ -342,7 +343,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
               fontSize: 10.sp,
               fontWeight: FontWeight.w800,
               letterSpacing: 0.4,
-              color: _deep,
+              color: IslamicColors.readableOf(context, _deep),
             ),
           ),
           SizedBox(height: 3.h),
@@ -372,7 +373,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
         style: TextStyle(
           fontSize: 10.sp,
           fontWeight: FontWeight.w700,
-          color: const Color(0xFF9A6206),
+          color: IslamicColors.readableOf(context, _deep),
         ),
       ),
     );
@@ -421,7 +422,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
                         color: _accent.withValues(alpha: 0.15),
                         shape: BoxShape.circle,
                       ),
-                      child: Icon(p.icon, size: 14.sp, color: _accent),
+                      child: Icon(p.icon, size: 14.sp, color: IslamicColors.readableOf(context, _accent)),
                     ),
                     const Spacer(),
                     Text(
@@ -489,7 +490,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
               color: _deep.withValues(alpha: 0.11),
               borderRadius: BorderRadius.circular(11.r),
             ),
-            child: Icon(v.icon, size: 17.sp, color: _deep),
+            child: Icon(v.icon, size: 17.sp, color: IslamicColors.readableOf(context, _deep)),
           ),
           SizedBox(width: 11.w),
           Expanded(
@@ -769,7 +770,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
                           style: TextStyle(
                             fontSize: 12.sp,
                             fontWeight: FontWeight.w800,
-                            color: _accent,
+                            color: IslamicColors.readableOf(context, _accent),
                           ),
                         ),
                       ),
@@ -794,7 +795,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
                             style: TextStyle(
                               fontSize: 12.sp,
                               fontWeight: FontWeight.w600,
-                              color: _accent,
+                              color: IslamicColors.readableOf(context, _accent),
                             ),
                           ),
                         ],
@@ -826,7 +827,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
                             Icon(
                               Icons.check_circle_outline_rounded,
                               size: 14.sp,
-                              color: _accent,
+                              color: IslamicColors.readableOf(context, _accent),
                             ),
                             SizedBox(width: 8.w),
                             Expanded(
@@ -931,7 +932,7 @@ class _UmrahGuideScreenState extends State<UmrahGuideScreen> {
               fontSize: 10.5.sp,
               fontStyle: FontStyle.italic,
               height: 1.5,
-              color: _accent,
+              color: IslamicColors.readableOf(context, _accent),
             ),
           ),
           SizedBox(height: 7.h),

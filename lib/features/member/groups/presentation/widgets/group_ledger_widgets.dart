@@ -5,6 +5,7 @@ import 'package:niya_equb/core/config/app_color.dart';
 import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/features/member/groups/data/repository/group_equb_repository.dart';
 import 'package:niya_equb/shared/widgets/custom_text.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 import 'package:get/get.dart';
 
 final _money = NumberFormat('#,##0', 'en_US');
@@ -38,11 +39,13 @@ String etbCompact(double v) {
 ///
 /// Lives here rather than in responsibility_widgets.dart because the members
 /// ledger below needs it too, and that file must not import upwards.
-const Color kResponsibilityTint = Color(0xFF7C3AED);
+///
+/// Charcoal: set apart from the maroon of the app's own actions and from the
+/// red and green of the payment states, without adding a fourth hue.
+const Color kResponsibilityTint = Color(0xFF3F3A3B);
 
-/// The same colour for a dark surface. Violet-600 is the right weight on
-/// white and goes to mud on navy, so the night screens get violet-400.
-const Color kResponsibilityTintNight = Color(0xFFA78BFA);
+/// The same colour for a dark surface.
+const Color kResponsibilityTintNight = Color(0xFFD6D0D2);
 
 /// Whichever of the two the surface underneath calls for.
 Color responsibilityTint(BuildContext context) =>
@@ -60,16 +63,18 @@ class PaymentStatusStyle {
 
   static PaymentStatusStyle of(String status) {
     switch (status) {
+      // The palette's status colours, readable on white; niyaTone swaps in
+      // their light partners on a dark card wherever these are drawn.
       case 'overdue':
-        return const PaymentStatusStyle('Overdue', Color(0xFFDC2626), Icons.error_outline_rounded);
+        return const PaymentStatusStyle('Overdue', NiyaPalette.danger, Icons.error_outline_rounded);
       case 'behind':
-        return const PaymentStatusStyle('Behind', Color(0xFFD97706), Icons.schedule_rounded);
+        return const PaymentStatusStyle('Behind', NiyaPalette.warning, Icons.schedule_rounded);
       case 'completed':
-        return const PaymentStatusStyle('Complete', Color(0xFF0EA5E9), Icons.verified_rounded);
+        return const PaymentStatusStyle('Complete', NiyaPalette.maroon, Icons.verified_rounded);
       case 'cancelled':
-        return const PaymentStatusStyle('Left', Color(0xFF64748B), Icons.remove_circle_outline_rounded);
+        return const PaymentStatusStyle('Left', NiyaPalette.inkSoft, Icons.remove_circle_outline_rounded);
       default:
-        return const PaymentStatusStyle('Paid up', Color(0xFF16A34A), Icons.check_circle_rounded);
+        return const PaymentStatusStyle('Paid up', NiyaPalette.success, Icons.check_circle_rounded);
     }
   }
 }
@@ -83,24 +88,27 @@ class StatusPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // [color] as given on white; its light partner on a dark card.
+    final tone = niyaTone(context, color);
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
+        color: tone.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(8.r),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           if (icon != null) ...[
-            Icon(icon, size: 12.r, color: color),
+            Icon(icon, size: 12.r, color: tone),
             SizedBox(width: 4.w),
           ],
           CustomText(
             title: label,
             fontSize: 10.sp,
             fontWeight: FontWeight.w600,
-            textColor: color,
+            textColor: tone,
           ),
         ],
       ),
@@ -124,7 +132,9 @@ class LedgerSummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    // White sits on this card, so it takes the fill maroon rather than the
+    // text maroon: in dark mode the text one is a pale rose.
+    final primary = appColors.buttonColor ?? AppStaticColor.primary;
     final isDark = Theme.of(context).brightness == Brightness.dark;
     final rate = (totals.collectionRate * 100).round();
 
@@ -357,6 +367,7 @@ class MemberLedgerTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = colors(context);
     final style = PaymentStatusStyle.of(member.paymentStatus);
+    final tone = niyaTone(context, style.color);
     final border = appColors.borderColor ?? AppStaticColor.borderLight;
 
     return Container(
@@ -366,7 +377,7 @@ class MemberLedgerTile extends StatelessWidget {
         color: appColors.accentColor,
         borderRadius: BorderRadius.circular(16.r),
         border: Border.all(
-          color: selected ? style.color.withValues(alpha: 0.6) : border.withValues(alpha: 0.5),
+          color: selected ? tone.withValues(alpha: 0.6) : border.withValues(alpha: 0.5),
           width: selected ? 1.4 : 1,
         ),
       ),
@@ -458,7 +469,7 @@ class MemberLedgerTile extends StatelessWidget {
                       title: '${etb(member.outstandingNow)} due',
                       fontSize: 10.sp,
                       fontWeight: FontWeight.w600,
-                      textColor: style.color,
+                      textColor: tone,
                     ),
                   ] else if (member.hasWon && member.winDate != null) ...[
                     SizedBox(height: 4.h),
@@ -486,7 +497,7 @@ class MemberLedgerTile extends StatelessWidget {
               value: member.progress.clamp(0, 1).toDouble(),
               minHeight: 5.h,
               backgroundColor: border.withValues(alpha: 0.5),
-              valueColor: AlwaysStoppedAnimation(style.color),
+              valueColor: AlwaysStoppedAnimation(tone),
             ),
           ),
         ],
@@ -495,6 +506,7 @@ class MemberLedgerTile extends StatelessWidget {
   }
 
   Widget _avatar(BuildContext context, PaymentStatusStyle style) {
+    final tone = niyaTone(context, style.color);
     final initials = member.name.trim().isEmpty
         ? '?'
         : member.name.trim().split(RegExp(r'\s+')).take(2).map((p) => p[0].toUpperCase()).join();
@@ -504,7 +516,7 @@ class MemberLedgerTile extends StatelessWidget {
       height: 38.r,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: style.color.withValues(alpha: 0.14),
+        color: tone.withValues(alpha: 0.14),
         image: (member.avatarUrl != null && member.avatarUrl!.isNotEmpty)
             ? DecorationImage(image: NetworkImage(member.avatarUrl!), fit: BoxFit.cover)
             : null,
@@ -515,7 +527,7 @@ class MemberLedgerTile extends StatelessWidget {
               title: initials,
               fontSize: 13.sp,
               fontWeight: FontWeight.w700,
-              textColor: style.color,
+              textColor: tone,
             )
           : null,
     );
@@ -533,7 +545,7 @@ class SplitPlanStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    final primary = appColors.primaryColor ?? AppStaticColor.primary;
 
     if (plan.isEmpty) {
       return const SizedBox.shrink();
@@ -645,7 +657,7 @@ class DrawRoundCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    final primary = appColors.primaryColor ?? AppStaticColor.primary;
 
     return Container(
       margin: EdgeInsets.only(bottom: 12.h),
@@ -754,7 +766,7 @@ class GroupEmptyState extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = colors(context);
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    final primary = appColors.primaryColor ?? AppStaticColor.primary;
 
     return Padding(
       padding: EdgeInsets.symmetric(horizontal: 32.w, vertical: 40.h),

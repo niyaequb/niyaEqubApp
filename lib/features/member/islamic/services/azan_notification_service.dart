@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:niya_equb/features/member/islamic/logic/prayer_calculator.dart';
+import 'package:niya_equb/features/member/islamic/services/azan_voices.dart';
 import 'package:niya_equb/features/member/islamic/services/islamic_location_service.dart';
 import 'package:niya_equb/features/member/islamic/services/islamic_prefs.dart';
 import 'package:niya_equb/features/member/islamic/services/mosque_mode_service.dart';
@@ -24,6 +25,22 @@ import 'package:timezone/timezone.dart' as tz;
 ///
 ///     adb logcat -s flutter:V
 void _log(Object? message) => debugPrint('[Azan] $message');
+
+/// The adhan sound one notification is built with: the built-in adhan or
+/// the voice the member chose (Prayer settings -> Adhan voice).
+class _AdhanSound {
+  const _AdhanSound({
+    required this.channelId,
+    required this.channelName,
+    required this.android,
+    required this.ios,
+  });
+
+  final String channelId;
+  final String channelName;
+  final AndroidNotificationSound android;
+  final String? ios;
+}
 
 /// Schedules and displays the five daily azan notifications.
 ///
@@ -71,6 +88,114 @@ class AzanNotificationService {
 
   /// Filename (without extension) of the adhan in android/app/src/main/res/raw.
   static const String azanSoundName = 'azan';
+
+  /// The adhan that ships with the app.
+  static const _AdhanSound _builtInAdhan = _AdhanSound(
+    channelId: azanChannelId,
+    channelName: 'Azan (Prayer Call)',
+    android: RawResourceAndroidNotificationSound(azanSoundName),
+    ios: 'azan.caf',
+  );
+
+  /// The adhan for the voice the member chose, or the built-in one when it
+  /// is the choice or the chosen voice cannot play on this phone.
+  ///
+  /// ONE CHANNEL PER VOICE on Android: a channel's sound is fixed the moment
+  /// the channel is created, so changing voice means a new channel id, and
+  /// the voice's version is part of it so a recording the admin replaced is
+  /// picked up too. Channels of voices no longer in use are removed, so the
+  /// phone's notification settings do not fill up with old ones.
+  ///
+  /// Reads only SharedPreferences, so it works from the background isolate.
+  static Future<_AdhanSound> _adhanSound(
+    FlutterLocalNotificationsPlugin plugin,
+  ) async {
+    AzanSoundChoice? choice;
+    try {
+      choice = await AzanVoices.activeSound();
+    } catch (e) {
+      _log('could not read the chosen adhan voice — $e');
+    }
+
+    final android = plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+
+    if (choice == null) {
+      if (android != null) await _retireVoiceChannels(android, keep: null);
+      return _builtInAdhan;
+    }
+
+    if (Platform.isIOS) {
+      return _AdhanSound(
+        channelId: azanChannelId,
+        channelName: 'Azan (Prayer Call)',
+        android: const RawResourceAndroidNotificationSound(azanSoundName),
+        ios: choice.iosSound,
+      );
+    }
+
+    final uri = choice.androidUri;
+    if (uri == null) return _builtInAdhan;
+
+    final channelId = 'azan_voice_${choice.voiceId}_v${choice.version}';
+    final channelName = 'Azan — ${choice.name}';
+    final sound = UriAndroidNotificationSound(uri);
+
+    if (android != null) {
+      try {
+        await android.createNotificationChannel(
+          AndroidNotificationChannel(
+            channelId,
+            channelName,
+            description:
+                'Plays the adhan at each of the five daily prayer times.',
+            importance: Importance.max,
+            playSound: true,
+            sound: sound,
+            audioAttributesUsage: AudioAttributesUsage.alarm,
+            enableVibration: true,
+            enableLights: true,
+          ),
+        );
+      } catch (e) {
+        _log('could not create the channel for voice ${choice.voiceId} — $e');
+        return _builtInAdhan;
+      }
+      await _retireVoiceChannels(android, keep: channelId);
+    }
+
+    return _AdhanSound(
+      channelId: channelId,
+      channelName: channelName,
+      android: sound,
+      ios: null,
+    );
+  }
+
+  static Future<void> _retireVoiceChannels(
+    AndroidFlutterLocalNotificationsPlugin android, {
+    required String? keep,
+  }) async {
+    final known = await IslamicPrefs.getAzanVoiceChannels();
+    final remaining = <String>[];
+
+    for (final id in known) {
+      if (id == keep) {
+        remaining.add(id);
+        continue;
+      }
+      try {
+        await android.deleteNotificationChannel(channelId: id);
+      } catch (_) {
+        // Already gone.
+      }
+    }
+
+    if (keep != null && !remaining.contains(keep)) remaining.add(keep);
+    await IslamicPrefs.setAzanVoiceChannels(remaining);
+  }
 
   static bool _timezoneReady = false;
 
@@ -281,8 +406,11 @@ class AzanNotificationService {
       final soundEnabled = await IslamicPrefs.isAzanSoundEnabled();
       final vibrate = await IslamicPrefs.isVibrateEnabled();
       final preMinutes = await IslamicPrefs.getPreAzanMinutes();
+      final playSeconds = await IslamicPrefs.getAzanPlaySeconds();
 
       await cancelAll();
+
+      final adhan = await _adhanSound(_plugin);
 
       final now = DateTime.now();
       final schedule = PrayerCalculator.calculateRange(
@@ -319,11 +447,13 @@ class AzanNotificationService {
             body: _bodyFor(prayer, time, location.city),
             when: time,
             channelId: soundEnabled && prayer.isAdhanPrayer
-                ? azanChannelId
+                ? adhan.channelId
                 : azanSilentChannelId,
+            adhan: adhan,
             playSound: soundEnabled && prayer.isAdhanPrayer,
             vibrate: vibrate,
             fullScreen: soundEnabled && prayer.isAdhanPrayer,
+            playSeconds: playSeconds,
             payload: {
               'type': 'azan',
               'prayer': prayer.key,
@@ -373,26 +503,35 @@ class AzanNotificationService {
     required String body,
     required DateTime when,
     required String channelId,
+    _AdhanSound? adhan,
     required bool playSound,
     required bool vibrate,
     required bool fullScreen,
     required Map<String, dynamic> payload,
+    int playSeconds = 0,
   }) async {
     final scheduled = tz.TZDateTime.from(when, tz.local);
 
+    // This notification IS the adhan (rather than a silent alert or the
+    // heads-up reminder) when it goes to the chosen voice's channel.
+    final adhanSound = adhan != null && channelId == adhan.channelId
+        ? adhan
+        : null;
+
     final androidDetails = AndroidNotificationDetails(
       channelId,
-      channelId == preAzanChannelId ? 'Prayer Reminder' : 'Azan (Prayer Call)',
+      adhanSound?.channelName ??
+          (channelId == preAzanChannelId
+              ? 'Prayer Reminder'
+              : 'Azan (Prayer Call)'),
       importance: Importance.max,
       priority: Priority.high,
       category: AndroidNotificationCategory.alarm,
       playSound: playSound,
-      sound: playSound && channelId == azanChannelId
-          ? const RawResourceAndroidNotificationSound(azanSoundName)
-          : null,
+      sound: playSound ? adhanSound?.android : null,
       // Must match the channel. On Android 8+ the channel wins, but these
       // details are also what pre-Oreo devices and the full-screen path read.
-      audioAttributesUsage: channelId == azanChannelId
+      audioAttributesUsage: adhanSound != null
           ? AudioAttributesUsage.alarm
           : AudioAttributesUsage.notification,
       enableVibration: vibrate,
@@ -402,14 +541,20 @@ class AzanNotificationService {
       visibility: NotificationVisibility.public,
       styleInformation: BigTextStyleInformation(body),
       autoCancel: true,
+      // Prayer settings -> Adhan length. Only the adhan itself is limited,
+      // never a silent alert or the "prayer in N minutes" reminder.
+      timeoutAfter: adhanSound != null && playSound
+          ? _limitMs(playSeconds)
+          : null,
     );
 
     final iosDetails = DarwinNotificationDetails(
       presentAlert: true,
       presentBadge: true,
       presentSound: playSound,
-      // iOS wants the extension; keep a .caf copy next to the .wav.
-      sound: playSound && channelId == azanChannelId ? 'azan.caf' : null,
+      // iOS wants the extension. The built-in adhan is azan.caf in the app
+      // bundle; a downloaded voice is a clip in Library/Sounds.
+      sound: playSound ? adhanSound?.ios : null,
       interruptionLevel: fullScreen
           ? InterruptionLevel.timeSensitive
           : InterruptionLevel.active,
@@ -451,6 +596,18 @@ class AzanNotificationService {
     }
   }
 
+  /// How long the adhan may play, in the milliseconds `timeoutAfter` takes, or
+  /// null to let the whole recording play.
+  ///
+  /// Android stops a notification's sound the moment that notification is
+  /// cancelled, and `timeoutAfter` makes the system cancel it after this long.
+  /// That limits every voice alike — the built-in adhan and every downloaded
+  /// recording — with no native code and no trimmed copies of the audio. The
+  /// notification clears together with the sound. iPhone has no equivalent (a
+  /// notification sound there plays to its end whatever is done afterwards),
+  /// so the setting is not offered on iPhone and nothing changes there.
+  static int? _limitMs(int seconds) => seconds > 0 ? seconds * 1000 : null;
+
   /// Cancels every azan and reminder we own, leaving Equb notifications alone.
   ///
   /// Asks the platform which notifications are actually pending rather than
@@ -491,6 +648,10 @@ class AzanNotificationService {
   static Future<void> previewAzan({String? prayerLabel}) async {
     final soundEnabled = await IslamicPrefs.isAzanSoundEnabled();
     final vibrate = await IslamicPrefs.isVibrateEnabled();
+    final adhan = await _adhanSound(_plugin);
+    // The preview obeys the chosen length too, so it is exactly what the
+    // member will get at prayer time.
+    final playSeconds = await IslamicPrefs.getAzanPlaySeconds();
 
     await _plugin.show(
       id: 99001,
@@ -500,21 +661,20 @@ class AzanNotificationService {
           : 'This is how the $prayerLabel notification will appear.',
       notificationDetails: NotificationDetails(
         android: AndroidNotificationDetails(
-          soundEnabled ? azanChannelId : azanSilentChannelId,
-          'Azan (Prayer Call)',
+          soundEnabled ? adhan.channelId : azanSilentChannelId,
+          adhan.channelName,
           importance: Importance.max,
           priority: Priority.high,
           playSound: soundEnabled,
-          sound: soundEnabled
-              ? const RawResourceAndroidNotificationSound(azanSoundName)
-              : null,
+          sound: soundEnabled ? adhan.android : null,
           audioAttributesUsage: AudioAttributesUsage.alarm,
           enableVibration: vibrate,
+          timeoutAfter: soundEnabled ? _limitMs(playSeconds) : null,
         ),
         iOS: DarwinNotificationDetails(
           presentAlert: true,
           presentSound: soundEnabled,
-          sound: soundEnabled ? 'azan.caf' : null,
+          sound: soundEnabled ? adhan.ios : null,
         ),
       ),
       payload: jsonEncode({'type': 'azan_preview'}),
@@ -595,15 +755,19 @@ class AzanNotificationService {
     _log('booking test azan for $when (exact alarms: '
         '${await canScheduleExactAlarms()})');
 
+    final adhan = await _adhanSound(_plugin);
+
     await _scheduleOne(
       id: 99002,
       title: 'Test azan',
       body: 'If you can hear the adhan, scheduled notifications are working.',
       when: when,
-      channelId: azanChannelId,
+      channelId: adhan.channelId,
+      adhan: adhan,
       playSound: true,
       vibrate: true,
       fullScreen: true,
+      playSeconds: await IslamicPrefs.getAzanPlaySeconds(),
       payload: {'type': 'azan_test'},
     );
 
@@ -667,6 +831,9 @@ class AzanNotificationService {
         ),
       );
 
+      final adhan = await _adhanSound(plugin);
+      final playSeconds = await IslamicPrefs.getAzanPlaySeconds();
+
       final prayerKey = data['prayer']?.toString();
       final withSound = data['silent']?.toString() != 'true';
 
@@ -688,25 +855,24 @@ class AzanNotificationService {
         body: body,
         notificationDetails: NotificationDetails(
           android: AndroidNotificationDetails(
-            withSound ? azanChannelId : azanSilentChannelId,
-            'Azan (Prayer Call)',
+            withSound ? adhan.channelId : azanSilentChannelId,
+            adhan.channelName,
             importance: Importance.max,
             priority: Priority.high,
             category: AndroidNotificationCategory.alarm,
             playSound: withSound,
-            sound: withSound
-                ? const RawResourceAndroidNotificationSound(azanSoundName)
-                : null,
+            sound: withSound ? adhan.android : null,
             audioAttributesUsage: withSound
                 ? AudioAttributesUsage.alarm
                 : AudioAttributesUsage.notification,
             fullScreenIntent: withSound,
             styleInformation: BigTextStyleInformation(body),
+            timeoutAfter: withSound ? _limitMs(playSeconds) : null,
           ),
           iOS: DarwinNotificationDetails(
             presentAlert: true,
             presentSound: withSound,
-            sound: withSound ? 'azan.caf' : null,
+            sound: withSound ? adhan.ios : null,
             interruptionLevel: InterruptionLevel.timeSensitive,
           ),
         ),

@@ -23,6 +23,10 @@ class IslamicPrefs {
   static const _kAzanSoundEnabled = 'islamic_azan_sound';
   static const _kPreAzanMinutes = 'islamic_pre_azan_minutes';
   static const _kVibrate = 'islamic_azan_vibrate';
+  static const _kAzanVoiceId = 'islamic_azan_voice_id';
+  static const _kAzanVoiceSounds = 'islamic_azan_voice_sounds';
+  static const _kAzanVoiceChannels = 'islamic_azan_voice_channels';
+  static const _kAzanPlaySeconds = 'islamic_azan_play_seconds';
   static const _kReciter = 'islamic_reciter';
   static const _kTranslation = 'islamic_translation';
   static const _kArabicFontSize = 'islamic_arabic_font_size';
@@ -158,6 +162,80 @@ class IslamicPrefs {
 
   static Future<void> setVibrateEnabled(bool value) async {
     await (await _p).setBool(_kVibrate, value);
+  }
+
+  /// Which adhan voice the notification plays: 'default' for the one built
+  /// into the app, otherwise the id of a downloaded voice.
+  static Future<String> getAzanVoiceId() async =>
+      (await _p).getString(_kAzanVoiceId) ?? 'default';
+
+  static Future<void> setAzanVoiceId(String id) async {
+    await (await _p).setString(_kAzanVoiceId, id);
+  }
+
+  /// How each downloaded voice was installed on this phone, by voice id:
+  /// name, version, local path, and the sound the notification refers to
+  /// (androidUri on Android, iosSound on iPhone). See AzanVoices.download.
+  static Future<Map<String, dynamic>?> getAzanVoiceSound(String id) async {
+    final all = await _azanVoiceSounds();
+    final record = all[id];
+    return record is Map ? Map<String, dynamic>.from(record) : null;
+  }
+
+  static Future<void> setAzanVoiceSound(
+    String id,
+    Map<String, dynamic>? record,
+  ) async {
+    final all = await _azanVoiceSounds();
+    if (record == null) {
+      all.remove(id);
+    } else {
+      all[id] = record;
+    }
+    await (await _p).setString(_kAzanVoiceSounds, jsonEncode(all));
+  }
+
+  static Future<Map<String, dynamic>> _azanVoiceSounds() async {
+    final raw = (await _p).getString(_kAzanVoiceSounds);
+    if (raw == null) return <String, dynamic>{};
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map
+          ? Map<String, dynamic>.from(decoded)
+          : <String, dynamic>{};
+    } catch (_) {
+      return <String, dynamic>{};
+    }
+  }
+
+  /// Android notification channels created for downloaded voices, so the
+  /// ones no longer used can be removed from the phone's settings.
+  static Future<List<String>> getAzanVoiceChannels() async =>
+      (await _p).getStringList(_kAzanVoiceChannels) ?? <String>[];
+
+  static Future<void> setAzanVoiceChannels(List<String> ids) async {
+    await (await _p).setStringList(_kAzanVoiceChannels, ids);
+  }
+
+  /// The lengths offered on the Prayer settings screen, in seconds. 0 means
+  /// the whole recording.
+  static const List<int> azanPlayOptions = [10, 20, 30, 60, 0];
+
+  /// How long the adhan plays before it is stopped, in seconds. 0 — the
+  /// default — lets the whole recording play, as it always has.
+  ///
+  /// Android enforces it (see AzanNotificationService); iPhone cannot stop a
+  /// notification sound once it has started, so the screen does not offer it
+  /// there.
+  static Future<int> getAzanPlaySeconds() async {
+    final seconds = (await _p).getInt(_kAzanPlaySeconds) ?? 0;
+    if (seconds < 0) return 0;
+    return seconds > 600 ? 600 : seconds;
+  }
+
+  static Future<void> setAzanPlaySeconds(int seconds) async {
+    final safe = seconds < 0 ? 0 : (seconds > 600 ? 600 : seconds);
+    await (await _p).setInt(_kAzanPlaySeconds, safe);
   }
 
   /// Optional "prayer is in N minutes" heads-up. 0 disables it.

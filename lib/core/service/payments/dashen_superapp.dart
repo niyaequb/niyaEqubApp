@@ -8,6 +8,7 @@ import 'package:niya_equb/core/config/app_theme.dart';
 import 'package:niya_equb/core/util/logger.dart';
 import 'package:niya_equb/shared/widgets/custom_text.dart';
 import 'package:niya_equb/shared/widgets/rounded_button.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 /// Getting a member from the Niya phone app to the Dashen SuperApp.
@@ -27,13 +28,30 @@ class DashenSuperApp {
   static const String appStoreUrl =
       'https://apps.apple.com/us/app/dashen-superapp/id6670182870';
 
-  /// The SuperApp's iPhone link scheme, without "://".
+  /// Link schemes the SuperApp may answer to on an iPhone, without "://",
+  /// most specific first.
   ///
-  /// Empty until Dashen confirm it. While it is empty an iPhone goes to the
-  /// App Store page, which shows "Open" when the app is already installed.
-  /// When it is filled in, add the same value under
-  /// LSApplicationQueriesSchemes in ios/Runner/Info.plist.
-  static const String iosUrlScheme = '';
+  /// Dashen have not published theirs, so the likely ones are tried in turn.
+  /// Opening a scheme no app has registered fails silently and costs nothing,
+  /// and none of these is generic enough to belong to another app (plain
+  /// "dashen" is left out on purpose: the bank's older apps may answer to it,
+  /// and Pay must not open the wrong one). When Dashen confirm the real
+  /// scheme, put it first here AND under LSApplicationQueriesSchemes in
+  /// ios/Runner/Info.plist — the list there is what lets [isInstalled] see
+  /// the app; opening works without it.
+  static const List<String> iosUrlSchemes = [
+    'dashensuperapp',
+    'com.dashen.dashensuperapp',
+    'dashensuper',
+  ];
+
+  /// The SuperApp's own web address.
+  ///
+  /// Tried first on both platforms, as a universal link / app link only
+  /// ([LaunchMode.externalNonBrowserApplication]): if the installed SuperApp
+  /// claims it, the phone goes straight into the app; if not, NOTHING opens —
+  /// no browser tab — and the next way is tried.
+  static const String appLink = 'https://www.dashensuperapp.com/download';
 
   /// Implemented in android/app/src/main/kotlin/com/niyaet/ekub/MainActivity.kt.
   /// Android 11 and later only let it see the SuperApp because of the
@@ -49,7 +67,11 @@ class DashenSuperApp {
       !kIsWeb && defaultTargetPlatform == TargetPlatform.iOS;
 
   /// Whether the SuperApp is installed: true, false, or null when this phone
-  /// cannot tell (an iPhone, while [iosUrlScheme] is unknown).
+  /// cannot tell.
+  ///
+  /// An iPhone can only answer "yes": it sees the schemes listed in
+  /// Info.plist and no others, so finding none of them means "not known",
+  /// never "not installed" — the SuperApp may answer to a scheme not listed.
   static Future<bool?> isInstalled() async {
     try {
       if (_isAndroid) {
@@ -59,8 +81,10 @@ class DashenSuperApp {
             ) ??
             false;
       }
-      if (_isIOS && iosUrlScheme.isNotEmpty) {
-        return await canLaunchUrl(Uri.parse('$iosUrlScheme://'));
+      if (_isIOS) {
+        for (final scheme in iosUrlSchemes) {
+          if (await canLaunchUrl(Uri.parse('$scheme://'))) return true;
+        }
       }
     } catch (e) {
       logger('DashenSuperApp.isInstalled: $e');
@@ -68,27 +92,43 @@ class DashenSuperApp {
     return null;
   }
 
-  /// Opens the SuperApp, or its store page when it is not installed.
+  /// Opens the SuperApp itself whenever it is on the phone, and its store
+  /// page only when it is not.
+  ///
+  /// In order: Android's launcher entry for the package; the SuperApp's own
+  /// web address as an app link; each iPhone link scheme; the store. Every
+  /// step that does not apply fails silently, so the member never sees a
+  /// browser tab or an error on the way to the right place.
   ///
   /// Returns false only when nothing at all could be opened.
   static Future<bool> openOrInstall() async {
-    try {
-      if (_isAndroid) {
+    if (_isAndroid) {
+      try {
         final opened = await _channel.invokeMethod<bool>(
           'open',
           {'package': androidPackage},
         );
         if (opened == true) return true;
-      } else if (_isIOS && iosUrlScheme.isNotEmpty) {
-        final uri = Uri.parse('$iosUrlScheme://');
-        if (await canLaunchUrl(uri) &&
-            await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-          return true;
-        }
+      } catch (e) {
+        logger('DashenSuperApp.open: $e');
       }
-    } catch (e) {
-      logger('DashenSuperApp.open: $e');
     }
+
+    if (_isAndroid || _isIOS) {
+      if (await _launch(
+        appLink,
+        mode: LaunchMode.externalNonBrowserApplication,
+      )) {
+        return true;
+      }
+    }
+
+    if (_isIOS) {
+      for (final scheme in iosUrlSchemes) {
+        if (await _launch('$scheme://')) return true;
+      }
+    }
+
     return openStore();
   }
 
@@ -108,12 +148,12 @@ class DashenSuperApp {
     );
   }
 
-  static Future<bool> _launch(String url) async {
+  static Future<bool> _launch(
+    String url, {
+    LaunchMode mode = LaunchMode.externalApplication,
+  }) async {
     try {
-      return await launchUrl(
-        Uri.parse(url),
-        mode: LaunchMode.externalApplication,
-      );
+      return await launchUrl(Uri.parse(url), mode: mode);
     } catch (e) {
       logger('DashenSuperApp: could not open $url: $e');
       return false;
@@ -189,7 +229,7 @@ class _DashenPaySheetState extends State<_DashenPaySheet> {
     if (!opened) {
       Get.rawSnackbar(
         message: _tr('dashen_open_failed', 'Could not open the Dashen SuperApp. Please open it yourself.'),
-        backgroundColor: Colors.redAccent,
+        backgroundColor: NiyaPalette.danger,
       );
       return;
     }
@@ -282,7 +322,7 @@ class _DashenPaySheetState extends State<_DashenPaySheet> {
                             Icon(
                               Icons.verified_user_rounded,
                               size: 13.sp,
-                              color: Colors.green,
+                              color: niya(context).success,
                             ),
                             SizedBox(width: 4.w),
                             Expanded(
@@ -378,14 +418,15 @@ class _DashenPaySheetState extends State<_DashenPaySheet> {
                   final String label;
                   final IconData icon;
 
+                  // "Open" unless the phone has said for certain the app is
+                  // not there (only Android can). An iPhone that cannot tell
+                  // still tries the app first; the store is the fallback, not
+                  // the first stop it used to be.
                   if (installed == false) {
                     label = isIOS
                         ? _tr('dashen_get_app_store', 'Download on the App Store')
                         : _tr('dashen_get_play_store', 'Get it on Google Play');
                     icon = Icons.download_rounded;
-                  } else if (installed == null && isIOS) {
-                    label = _tr('dashen_open_app_store', 'Open in the App Store');
-                    icon = Icons.open_in_new_rounded;
                   } else {
                     label = _tr('dashen_open_app', 'Open Dashen SuperApp');
                     icon = Icons.open_in_new_rounded;

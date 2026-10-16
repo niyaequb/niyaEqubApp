@@ -203,7 +203,7 @@ class _AppUpdateSheetState extends State<_AppUpdateSheet> {
   /// "Google Play" / "App Store", so it is obvious where the update comes
   /// from and that this is not a third party asking for something.
   Widget _storeLine(AppColors appColors) {
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    final primary = appColors.primaryColor ?? AppStaticColor.primary;
 
     return Row(
       children: [
@@ -456,7 +456,7 @@ class _AppUpdateSheetState extends State<_AppUpdateSheet> {
   }
 
   Widget _notesList(AppColors appColors, List<String> notes) {
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    final primary = appColors.primaryColor ?? AppStaticColor.primary;
 
     return Padding(
       padding: EdgeInsets.only(bottom: 6.h),
@@ -540,7 +540,9 @@ class _AppUpdateSheetState extends State<_AppUpdateSheet> {
   /// "Not now"; on a forced one it opens the listing, because a screen with a
   /// single button and no explanation is where support tickets come from.
   Widget _actions(AppColors appColors) {
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    // The update button carries a white label, so the fill maroon rather
+    // than the text maroon (a pale rose in dark mode).
+    final primary = appColors.buttonColor ?? AppStaticColor.primary;
     final outlineColor = appColors.borderColor ?? AppStaticColor.borderLight;
 
     return Row(

@@ -267,7 +267,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
       ),
       decoration: const BoxDecoration(
         gradient: LinearGradient(
-          colors: [IslamicColors.featureQuran, Color(0xFF15803D)],
+          colors: [IslamicColors.primary, IslamicColors.primaryDark],
         ),
       ),
       child: Row(
@@ -357,7 +357,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
           fontSize: (state.arabicFontSize - 2).sp,
           fontWeight: FontWeight.w600,
           height: 1.9,
-          color: IslamicColors.featureQuran,
+          color: IslamicColors.readable(context),
         ),
       ),
     );
@@ -409,7 +409,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                         style: TextStyle(
                           fontSize: 9.5.sp,
                           fontWeight: FontWeight.w700,
-                          color: IslamicColors.featureQuran,
+                          color: IslamicColors.readable(context),
                         ),
                       ),
                     ),
@@ -420,7 +420,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                         child: Icon(
                           Icons.self_improvement_rounded,
                           size: 14.sp,
-                          color: IslamicColors.mosqueDome,
+                          color: IslamicColors.readable(context),
                         ),
                       ),
                     ],
@@ -429,7 +429,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                       Icon(
                         Icons.bookmark_rounded,
                         size: 15.sp,
-                        color: IslamicColors.mosqueDome,
+                        color: IslamicColors.readable(context),
                       ),
                     SizedBox(width: 4.w),
                     InkWell(
@@ -440,7 +440,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                         child: Icon(
                           Icons.play_circle_outline_rounded,
                           size: 20.sp,
-                          color: IslamicColors.featureQuran,
+                          color: IslamicColors.readable(context),
                         ),
                       ),
                     ),
@@ -687,7 +687,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
     required VoidCallback onTap,
   }) {
     final color = active
-        ? IslamicColors.featureQuran
+        ? IslamicColors.readable(context)
         : appColors.bodyTextSmallColor;
 
     return InkWell(
@@ -752,9 +752,9 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
             ),
             SizedBox(height: 8.h),
             ListTile(
-              leading: const Icon(
+              leading: Icon(
                 Icons.play_circle_outline_rounded,
-                color: IslamicColors.featureQuran,
+                color: IslamicColors.readable(context),
               ),
               title: Text(
                 'play_from_here'.tr,
@@ -770,7 +770,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                 state.isBookmarked(ayah.numberInSurah)
                     ? Icons.bookmark_remove_rounded
                     : Icons.bookmark_add_rounded,
-                color: IslamicColors.mosqueDome,
+                color: IslamicColors.readable(context),
               ),
               title: Text(
                 state.isBookmarked(ayah.numberInSurah)
@@ -789,9 +789,9 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(
+              leading: Icon(
                 Icons.copy_rounded,
-                color: IslamicColors.primary,
+                color: IslamicColors.readable(context),
               ),
               title: Text('copy'.tr, style: TextStyle(fontSize: 13.sp)),
               onTap: () {
@@ -803,9 +803,9 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
               },
             ),
             ListTile(
-              leading: const Icon(
+              leading: Icon(
                 Icons.share_rounded,
-                color: IslamicColors.primary,
+                color: IslamicColors.readable(context),
               ),
               title: Text('share'.tr, style: TextStyle(fontSize: 13.sp)),
               onTap: () {
@@ -880,14 +880,14 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                     fontSize: 12.5.sp,
                     fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                     color: selected
-                        ? IslamicColors.featureQuran
+                        ? IslamicColors.readable(context)
                         : appColors.bodyTextColor,
                   ),
                 ),
                 trailing: selected
                     ? Icon(
                         Icons.check_circle_rounded,
-                        color: IslamicColors.featureQuran,
+                        color: IslamicColors.readable(context),
                         size: 18.sp,
                       )
                     : null,
@@ -939,7 +939,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                       fontSize: 12.5.sp,
                       fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
                       color: selected
-                          ? IslamicColors.featureQuran
+                          ? IslamicColors.readable(context)
                           : appColors.bodyTextColor,
                     ),
                   ),
@@ -953,7 +953,7 @@ class _QuranReaderScreenState extends State<QuranReaderScreen> {
                   trailing: selected
                       ? Icon(
                           Icons.check_circle_rounded,
-                          color: IslamicColors.featureQuran,
+                          color: IslamicColors.readable(context),
                           size: 18.sp,
                         )
                       : null,

@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:niya_equb/core/init/injections.dart';
 import 'package:niya_equb/core/service/snack_bar.dart';
 import 'package:niya_equb/core/util/html_text.dart';
+import 'package:niya_equb/core/util/package_names.dart';
 import 'package:niya_equb/features/member/groups/data/repository/group_equb_repository.dart';
 import 'package:niya_equb/features/member/groups/presentation/widgets/group_ledger_widgets.dart';
 import 'package:niya_equb/features/member/packages/presentation/widgets/equb_visuals.dart';
@@ -28,7 +29,7 @@ class JoinGroupScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const NiyaNightTheme(child: _JoinGroupForm());
+      const NiyaBrandTheme(child: _JoinGroupForm());
 }
 
 class _JoinGroupForm extends StatefulWidget {
@@ -53,8 +54,8 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
   /// without any extra bookkeeping.
   String? _acceptedTerms;
 
-  static const Color _danger = Color(0xFFF87171);
-  static const Color _good = Color(0xFF4ADE80);
+  Color get _danger => niya(context).danger;
+  Color get _good => niya(context).success;
 
   @override
   void dispose() {
@@ -142,7 +143,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
 
   @override
   Widget build(BuildContext context) {
-    return NiyaNightScaffold(
+    return NiyaScaffold(
       title: 'Join a group'.tr,
       bottomBar: _preview == null ? null : _bottomBar,
       body: _body,
@@ -154,7 +155,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
     if (preview == null) return const SizedBox.shrink();
 
     if (preview.alreadyMember || _joined) {
-      return NiyaGoldButton(
+      return NiyaPrimaryButton(
         label: 'Done'.tr,
         icon: Icons.check_rounded,
         height: 50.h,
@@ -168,7 +169,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        NiyaGoldButton(
+        NiyaPrimaryButton(
           label: mustRead
               ? 'Read and accept the terms'.tr
               : 'Accept and join'.tr,
@@ -183,7 +184,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
           'Your first contribution is due on the next round.'.tr,
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: Colors.white54,
+            color: niya(context).inkSoft,
             fontSize: 10.5.sp,
             fontWeight: FontWeight.w500,
           ),
@@ -207,7 +208,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
         Text(
           'Enter the invite code the group creator shared with you.'.tr,
           style: TextStyle(
-            color: Colors.white60,
+            color: niya(context).inkSoft,
             fontSize: 11.5.sp,
             fontWeight: FontWeight.w500,
             height: 1.35,
@@ -238,7 +239,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
             SizedBox(width: 10.w),
             SizedBox(
               width: 96.w,
-              child: NiyaGoldButton(
+              child: NiyaPrimaryButton(
                 label: 'Find'.tr,
                 busy: _looking,
                 height: 52.h,
@@ -278,7 +279,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
             else
               _banner(
                 icon: Icons.info_outline_rounded,
-                color: NiyaPalette.goldLight,
+                color: niya(context).accent,
                 text:
                     'This Equb has no written terms. Ask the creator if you '
                             'are unsure how it works.'
@@ -305,14 +306,14 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
               Icon(
                 Icons.description_rounded,
                 size: 16.r,
-                color: NiyaPalette.goldLight,
+                color: niya(context).accent,
               ),
               SizedBox(width: 8.w),
               Expanded(
                 child: Text(
                   'Terms and conditions'.tr,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: niya(context).ink,
                     fontSize: 13.5.sp,
                     fontWeight: FontWeight.w800,
                   ),
@@ -321,7 +322,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
               SizedBox(width: 8.w),
               NiyaPill(
                 label: settled ? 'Accepted'.tr : 'Not read yet'.tr,
-                color: settled ? _good : const Color(0xFFFBBF24),
+                color: settled ? _good : niya(context).warning,
                 icon: settled
                     ? Icons.verified_rounded
                     : Icons.error_outline_rounded,
@@ -334,7 +335,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: Colors.white54,
+              color: niya(context).inkSoft,
               fontSize: 11.sp,
               height: 1.45,
             ),
@@ -348,7 +349,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
               onPressed: _openTerms,
             )
           else
-            NiyaGoldButton(
+            NiyaPrimaryButton(
               label: 'Read the terms'.tr,
               icon: Icons.menu_book_rounded,
               height: 42.h,
@@ -362,7 +363,11 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
 
   Widget _groupCard(BuildContext context, GroupPreview p) {
     final rows = <(String, String)>[
-      if (p.equbName != null) ('Equb'.tr, p.equbName!),
+      if (p.equbName != null)
+        (
+          'Equb'.tr,
+          planDisplayName(name: p.equbName, frequencyDays: p.frequencyDays),
+        ),
       ('Each person, per round'.tr, etb(p.contributionPerPerson)),
       ('Every'.tr, '${p.frequencyDays} day(s)'),
       ('Members so far'.tr, '${p.membersCount}'),
@@ -391,7 +396,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: Colors.white,
+                        color: niya(context).ink,
                         fontSize: 14.5.sp,
                         fontWeight: FontWeight.w800,
                       ),
@@ -403,7 +408,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: Colors.white70,
+                          color: niya(context).inkSoft,
                           fontSize: 11.sp,
                           fontWeight: FontWeight.w500,
                           height: 1.3,
@@ -416,7 +421,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
             ],
           ),
           SizedBox(height: 12.h),
-          const NiyaGoldRule(thickness: 0.8),
+          const NiyaRule(thickness: 0.8),
           SizedBox(height: 10.h),
           ...rows.map(
             (r) => Padding(
@@ -427,7 +432,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
                     child: Text(
                       r.$1,
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: niya(context).inkSoft,
                         fontSize: 11.5.sp,
                         fontWeight: FontWeight.w500,
                       ),
@@ -437,7 +442,7 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
                   Text(
                     r.$2,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: niya(context).ink,
                       fontSize: 11.5.sp,
                       fontWeight: FontWeight.w700,
                     ),
@@ -459,9 +464,9 @@ class _JoinGroupFormState extends State<_JoinGroupForm> {
     return Container(
       padding: EdgeInsets.all(13.r),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.16),
+        color: color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(12.r),
-        border: Border.all(color: color.withValues(alpha: 0.45)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

@@ -35,6 +35,10 @@ class IslamicCenterReady extends IslamicCenterState {
   final bool vibrateEnabled;
   final int preAzanMinutes;
 
+  /// How long the adhan plays before it is stopped, in seconds. 0 means the
+  /// whole recording.
+  final int azanPlaySeconds;
+
   /// False when Android has refused the exact-alarm grant — the UI surfaces a
   /// fix-it prompt rather than letting the adhan quietly drift.
   final bool canScheduleExact;
@@ -60,6 +64,7 @@ class IslamicCenterReady extends IslamicCenterState {
     required this.vibrateEnabled,
     required this.preAzanMinutes,
     required this.canScheduleExact,
+    this.azanPlaySeconds = 0,
     this.locationIssue,
     this.isRefreshing = false,
   });
@@ -86,6 +91,7 @@ class IslamicCenterReady extends IslamicCenterState {
     bool? soundEnabled,
     bool? vibrateEnabled,
     int? preAzanMinutes,
+    int? azanPlaySeconds,
     bool? canScheduleExact,
     LocationOutcome? locationIssue,
     bool clearLocationIssue = false,
@@ -104,6 +110,7 @@ class IslamicCenterReady extends IslamicCenterState {
       soundEnabled: soundEnabled ?? this.soundEnabled,
       vibrateEnabled: vibrateEnabled ?? this.vibrateEnabled,
       preAzanMinutes: preAzanMinutes ?? this.preAzanMinutes,
+      azanPlaySeconds: azanPlaySeconds ?? this.azanPlaySeconds,
       canScheduleExact: canScheduleExact ?? this.canScheduleExact,
       locationIssue: clearLocationIssue
           ? null
@@ -131,6 +138,7 @@ class IslamicCenterReady extends IslamicCenterState {
     soundEnabled,
     vibrateEnabled,
     preAzanMinutes,
+    azanPlaySeconds,
     canScheduleExact,
     locationIssue,
     isRefreshing,

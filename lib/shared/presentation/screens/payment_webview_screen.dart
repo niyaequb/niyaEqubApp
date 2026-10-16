@@ -58,6 +58,7 @@ import 'package:niya_equb/core/service/payments/payment_bridge.dart';
 import 'package:niya_equb/core/util/logger.dart';
 import 'package:niya_equb/features/member/packages/data/repository/ekub_packages_repository.dart';
 import 'package:niya_equb/shared/widgets/custom_text.dart';
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 
 /// User type for navigating to the correct home (dashboard) after payment.
 enum PaymentUserType { member }
@@ -167,12 +168,10 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
       child: Scaffold(
         backgroundColor: appColors.scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
           leading: IconButton(
             icon: Icon(
               Icons.arrow_back_rounded,
-              color: appColors.titleTextColor,
+              color: Colors.white,
               size: 24.sp,
             ),
             onPressed: () => _handleReturn(success: false),
@@ -181,7 +180,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
           title: CustomText(
             title: widget.title.tr,
             fontSize: 18.sp,
-            textColor: appColors.titleTextColor,
+            textColor: Colors.white,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -239,7 +238,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                   Container(
                     padding: EdgeInsets.all(12.w),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFB01F2E).withValues(alpha: 0.08),
+                      color: niya(context).danger.withValues(alpha: 0.08),
                       borderRadius: BorderRadius.circular(10.r),
                     ),
                     child: CustomText(
@@ -247,7 +246,7 @@ class _PaymentWebViewScreenState extends State<PaymentWebViewScreen> {
                       fontSize: 12.sp,
                       maxLines: 4,
                       textAlign: TextAlign.center,
-                      textColor: const Color(0xFFB01F2E),
+                      textColor: niya(context).danger,
                     ),
                   ),
                 ],

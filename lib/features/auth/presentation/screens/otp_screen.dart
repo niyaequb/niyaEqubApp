@@ -57,18 +57,17 @@ class _OtpScreenState extends State<OtpScreen> {
 
     return Scaffold(
       backgroundColor: appColors.scaffoldBackgroundColor,
+      // Maroon, like every header in the app (AppBarTheme).
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
         centerTitle: true,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: appColors.titleTextColor),
+          icon: const Icon(Icons.arrow_back, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
         title: CustomText(
           title: "otp_verification".tr,
           fontSize: 18.sp,
-          textColor: appColors.titleTextColor,
+          textColor: Colors.white,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -165,7 +164,7 @@ class _OtpScreenState extends State<OtpScreen> {
                     submitting: state is AuthVerifyOtpLoading,
                     label: "verify_code_btn".tr,
                     height: 48.h,
-                    backgroundColor: appColors.primaryColor,
+                    backgroundColor: appColors.buttonColor,
                     onPressed: () {
                       String otp = _controllers.map((e) => e.text).join();
                       if (otp.length == 4) {

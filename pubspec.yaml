@@ -26,7 +26,7 @@ publish_to: "none" # Remove this line if you wish to publish to pub.dev
 #
 # Bump this on every build you hand out, without exception. A tester on an
 # unknown version is a bug report you cannot act on.
-version: 1.0.1+27
+version: 1.0.1+30
 environment:
   sdk: ^3.10.7
 
@@ -61,6 +61,15 @@ dependencies:
   table_calendar: ^3.1.2
   webview_flutter: ^4.10.0
   url_launcher: ^6.3.1
+  # Keeps the home banners on disk between launches, so they appear with the
+  # first frame instead of downloading again on every start. See
+  # lib/features/member/home/presentation/widgets/banner_image.dart. Built on
+  # flutter_cache_manager 3.4.1, which the lock file already resolves.
+  cached_network_image: ^3.4.1
+  # Where downloaded adhan voices are kept (application support) and, on
+  # iPhone, Library/Sounds, the only folder besides the app bundle that iOS
+  # takes notification sounds from. Already resolved in the lock file.
+  path_provider: ^2.1.5
   # Reads the running build's version and build number at runtime, which is
   # what the update check compares against the server. Hard-coding it in Dart
   # would drift from pubspec the first time someone bumps one and not the

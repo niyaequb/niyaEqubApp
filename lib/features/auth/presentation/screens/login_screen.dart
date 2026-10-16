@@ -366,10 +366,10 @@ class _LoginScreenState extends State<LoginScreen> {
                             submitting: state is AuthLoginLoading,
                             fontSize: 14.r,
                             label: "sign_in_button".tr,
-                            foregroundColor: Colors.black.withValues(alpha: .7),
+                            foregroundColor: Colors.white,
                             height: 45.h,
                             borderRadius: 12.r,
-                            backgroundColor: appColors.primaryColor,
+                            backgroundColor: appColors.buttonColor,
                             onPressed: _handleLogin,
                           );
                         },

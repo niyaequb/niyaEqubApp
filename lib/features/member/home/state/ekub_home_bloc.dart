@@ -88,8 +88,15 @@ class EkubHomeBloc extends Bloc<EkubHomeEvent, EkubHomeState> {
             CompanyFact(id: 3, label: 'Verified'.tr, value: '100%'),
           ];
 
+    // Every copy made here carries the slide duration across; building a
+    // fresh HomePromotions without it would put the carousel back on the
+    // default pace whatever the admin panel says.
     if (promotions.banners.isNotEmpty) {
-      return HomePromotions(banners: promotions.banners, companyFacts: facts);
+      return HomePromotions(
+        banners: promotions.banners,
+        companyFacts: facts,
+        slideSeconds: promotions.slideSeconds,
+      );
     }
 
     return HomePromotions(
@@ -114,6 +121,7 @@ class EkubHomeBloc extends Bloc<EkubHomeEvent, EkubHomeState> {
         ),
       ],
       companyFacts: facts,
+      slideSeconds: promotions.slideSeconds,
     );
   }
 
@@ -157,7 +165,13 @@ class EkubHomeBloc extends Bloc<EkubHomeEvent, EkubHomeState> {
       );
 
       final promotions = _withFallbacks(
-        promotionsResult.fold((failure) => HomePromotions(), (p) => p),
+        promotionsResult.fold(
+          // Offline or a failed request: keep what the last good reply said
+          // (its banners and its slide duration) instead of swapping them for
+          // the built-in placeholders and the default pace.
+          (failure) => repository.cachedPromotions() ?? HomePromotions(),
+          (p) => p,
+        ),
       );
 
       emit(

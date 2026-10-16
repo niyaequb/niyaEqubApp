@@ -1,14 +1,42 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 
+import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 import 'package:niya_equb/shared/widgets/custom_text.dart';
 
-void showErrorSnackBar(BuildContext ctx, String message) {
-  var snackBar = SnackBar(
+// HOW THE APP'S MESSAGES LOOK
+//
+// Floating cards with rounded corners rather than a strip glued to the bottom
+// edge, so they sit clear of the tab bar and read as a message rather than as
+// part of the screen. The colours are the palette's deep status colours: the
+// old Material red and green carried white text at under 4:1 and 3:1, which
+// is why a success message could be hard to read in sunlight.
+
+/// The card every message here is drawn on.
+SnackBar _niyaSnackBar({
+  required Widget content,
+  required Color background,
+  required Duration duration,
+  SnackBarAction? action,
+}) {
+  return SnackBar(
     dismissDirection: DismissDirection.horizontal,
+    behavior: SnackBarBehavior.floating,
+    margin: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+    elevation: 4,
+    content: content,
+    duration: duration,
+    backgroundColor: background,
+    action: action,
+  );
+}
+
+void showErrorSnackBar(BuildContext ctx, String message) {
+  var snackBar = _niyaSnackBar(
     content: Row(
       children: [
-        const Icon(Icons.info, color: Colors.white),
+        const Icon(Icons.error_outline_rounded, color: Colors.white),
         const SizedBox(width: 10),
         Flexible(
           child: CustomText(title: message, textColor: Colors.white),
@@ -16,7 +44,7 @@ void showErrorSnackBar(BuildContext ctx, String message) {
       ],
     ),
     duration: const Duration(seconds: 5),
-    backgroundColor: Colors.red,
+    background: NiyaPalette.danger,
   );
   ScaffoldMessenger.of(ctx).clearSnackBars();
   ScaffoldMessenger.of(ctx).showSnackBar(snackBar);
@@ -34,8 +62,7 @@ void showInfoSnackBar(
   String? actionLabel,
   VoidCallback? onAction,
 }) {
-  var snackBar = SnackBar(
-    dismissDirection: DismissDirection.horizontal,
+  var snackBar = _niyaSnackBar(
     content: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -54,7 +81,7 @@ void showInfoSnackBar(
       ],
     ),
     duration: const Duration(seconds: 9),
-    backgroundColor: const Color(0xFF334155),
+    background: const Color(0xFF2B2728),
     action: (actionLabel != null && onAction != null)
         ? SnackBarAction(
             label: actionLabel,
@@ -68,11 +95,10 @@ void showInfoSnackBar(
 }
 
 void showSuccessSnackBar(BuildContext ctx, String message) {
-  var snackBar = SnackBar(
-    dismissDirection: DismissDirection.horizontal,
+  var snackBar = _niyaSnackBar(
     content: Row(
       children: [
-        Icon(Icons.check_circle, color: Colors.white),
+        const Icon(Icons.check_circle_rounded, color: Colors.white),
         const SizedBox(width: 10),
         Flexible(
           child: Text(
@@ -84,7 +110,7 @@ void showSuccessSnackBar(BuildContext ctx, String message) {
       ],
     ),
     duration: const Duration(seconds: 5),
-    backgroundColor: Colors.green,
+    background: NiyaPalette.success,
   );
   ScaffoldMessenger.of(ctx).clearSnackBars();
   ScaffoldMessenger.of(ctx).showSnackBar(snackBar);
@@ -93,7 +119,7 @@ void showSuccessSnackBar(BuildContext ctx, String message) {
 class CustomToast {
   static void showToast(
     String message, {
-    Color bgColor = Colors.green,
+    Color bgColor = NiyaPalette.success,
     Color textColor = Colors.white,
   }) {
     Fluttertoast.showToast(

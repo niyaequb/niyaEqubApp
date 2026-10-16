@@ -125,13 +125,13 @@ class _MosqueModeCardState extends State<MosqueModeCard>
               Container(
                 padding: EdgeInsets.all(8.w),
                 decoration: BoxDecoration(
-                  color: IslamicColors.accentTeal.withValues(alpha: 0.14),
+                  color: IslamicColors.accent.withValues(alpha: 0.14),
                   borderRadius: BorderRadius.circular(10.r),
                 ),
                 child: Icon(
                   Icons.vibration_rounded,
                   size: 18.sp,
-                  color: IslamicColors.accentTeal,
+                  color: IslamicColors.readable(context),
                 ),
               ),
               SizedBox(width: 11.w),
@@ -161,7 +161,7 @@ class _MosqueModeCardState extends State<MosqueModeCard>
               ),
               Switch(
                 value: _enabled,
-                activeThumbColor: IslamicColors.accentTeal,
+                activeThumbColor: IslamicColors.accent,
                 onChanged: _setEnabled,
               ),
             ],
@@ -276,7 +276,7 @@ class _MosqueModeCardState extends State<MosqueModeCard>
     return Container(
       padding: EdgeInsets.all(11.w),
       decoration: BoxDecoration(
-        color: IslamicColors.accentTeal.withValues(alpha: 0.12),
+        color: IslamicColors.accent.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(11.r),
       ),
       child: Row(
@@ -284,7 +284,7 @@ class _MosqueModeCardState extends State<MosqueModeCard>
           Icon(
             Icons.vibration_rounded,
             size: 17.sp,
-            color: IslamicColors.accentTeal,
+            color: IslamicColors.readable(context),
           ),
           SizedBox(width: 9.w),
           Expanded(
@@ -308,7 +308,7 @@ class _MosqueModeCardState extends State<MosqueModeCard>
               style: TextStyle(
                 fontSize: 10.5.sp,
                 fontWeight: FontWeight.w700,
-                color: IslamicColors.accentTeal,
+                color: IslamicColors.readable(context),
               ),
             ),
           ),
@@ -351,11 +351,11 @@ class _MosqueModeCardState extends State<MosqueModeCard>
                 ),
                 decoration: BoxDecoration(
                   color: isSelected
-                      ? IslamicColors.accentTeal
-                      : IslamicColors.accentTeal.withValues(alpha: 0.10),
+                      ? IslamicColors.accent
+                      : IslamicColors.accent.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(20.r),
                   border: Border.all(
-                    color: IslamicColors.accentTeal.withValues(alpha: 0.35),
+                    color: IslamicColors.accent.withValues(alpha: 0.35),
                   ),
                 ),
                 child: Text(
@@ -363,7 +363,7 @@ class _MosqueModeCardState extends State<MosqueModeCard>
                   style: TextStyle(
                     fontSize: 10.5.sp,
                     fontWeight: FontWeight.w700,
-                    color: isSelected ? Colors.white : IslamicColors.accentTeal,
+                    color: isSelected ? Colors.white : IslamicColors.readable(context),
                   ),
                 ),
               ),

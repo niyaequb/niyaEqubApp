@@ -27,6 +27,7 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:niya_equb/core/service/notification_service.dart';
 import 'package:niya_equb/core/init/injections.dart';
 import 'package:niya_equb/core/service/shared_preference_service.dart';
+import 'package:niya_equb/core/util/package_names.dart';
 
 class EqubDetailScreen extends StatefulWidget {
   final int groupId;
@@ -186,14 +187,14 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
   /// bank on its own schedule and the contribution updates when it lands.
   void _announceSettlement(BuildContext context, SettlementWatch settlement) {
     String? message;
-    Color background = const Color(0xFF2E3A46);
+    Color background = const Color(0xFF2B2728);
 
     if (settlement == SettlementWatch.confirmed) {
       message = 'payment_confirmed'.tr;
-      background = const Color(0xFF1E7A4C);
+      background = NiyaPalette.success;
     } else if (settlement == SettlementWatch.failed) {
       message = 'payment_bank_declined'.tr;
-      background = const Color(0xFFB01F2E);
+      background = NiyaPalette.danger;
     } else if (settlement == SettlementWatch.stillPending) {
       message = 'payment_still_confirming'.tr;
     }
@@ -319,7 +320,7 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
                 // declare, once the bank has confirmed it.
                 Get.rawSnackbar(
                   message: "payment_checking".tr,
-                  backgroundColor: const Color(0xFF2E3A46),
+                  backgroundColor: const Color(0xFF2B2728),
                   duration: const Duration(seconds: 4),
                 );
               }
@@ -361,7 +362,7 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
           );
           Get.rawSnackbar(
             message: state.failure.errorMessage,
-            backgroundColor: Colors.red,
+            backgroundColor: NiyaPalette.danger,
           );
         } else if (state is EqubDetailLeaveSuccess) {
           // Close confirmation dialog
@@ -371,26 +372,24 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
           
           Get.rawSnackbar(
             message: "Successfully left the Equb group",
-            backgroundColor: Colors.green,
+            backgroundColor: NiyaPalette.success,
           );
         } else if (state is EqubDetailLeaveFailure) {
           // Close the dialog so user can see error on screen
           Get.back();
           Get.rawSnackbar(
             message: state.failure.errorMessage,
-            backgroundColor: Colors.red,
+            backgroundColor: NiyaPalette.danger,
           );
         }
       },
       child: Scaffold(
         backgroundColor: appColors.scaffoldBackgroundColor,
         appBar: AppBar(
-          backgroundColor: Colors.transparent,
-          elevation: 0,
           leading: IconButton(
             icon: Icon(
               Icons.arrow_back_rounded,
-              color: appColors.titleTextColor,
+              color: Colors.white,
               size: 24.sp,
             ),
             onPressed: () => Navigator.of(context).pop(),
@@ -399,7 +398,7 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
           title: CustomText(
             title: 'group_detail'.tr,
             fontSize: 18.sp,
-            textColor: appColors.titleTextColor,
+            textColor: Colors.white,
             fontWeight: FontWeight.w600,
           ),
         ),
@@ -521,12 +520,12 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
                     ],
                     if (payable != null)
                       RoundedButton(
-                        label: _payLabel(payable, state.group),
+                        label: _payLabel(payable, state.group, state.schedule),
                         height: 52.h,
                         borderRadius: 14.r,
                         fontSize: 15.sp,
                         fontWeight: FontWeight.w800,
-                        backgroundColor: appColors.primaryColor,
+                        backgroundColor: appColors.buttonColor,
                         foregroundColor: Colors.white,
                         icon: Icon(
                           Icons.account_balance_wallet_rounded,
@@ -552,18 +551,24 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12.r),
                           ),
-                          backgroundColor: Colors.red.withValues(alpha: 0.1),
+                          backgroundColor: niya(context).danger.withValues(
+                            alpha: 0.1,
+                          ),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.exit_to_app_rounded, color: Colors.redAccent, size: 18.sp),
+                            Icon(
+                              Icons.exit_to_app_rounded,
+                              color: niya(context).danger,
+                              size: 18.sp,
+                            ),
                             SizedBox(width: 8.w),
                             CustomText(
                               title: "leave_equb_group".tr,
                               fontSize: 14.sp,
                               fontWeight: FontWeight.w700,
-                              textColor: Colors.redAccent,
+                              textColor: niya(context).danger,
                             ),
                           ],
                         ),
@@ -615,7 +620,11 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
                       fit: BoxFit.scaleDown,
                       alignment: Alignment.centerLeft,
                       child: CustomText(
-                        title: group.name ?? group.packageName ?? 'Equb',
+                        title: planDisplayName(
+                          name: group.name,
+                          packageName: group.package?.name,
+                          frequencyDays: group.contributionFrequencyDays,
+                        ),
                         fontSize: 17.sp,
                         fontWeight: FontWeight.w800,
                         textColor: appColors.titleTextColor,
@@ -629,7 +638,7 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
                         vertical: 3.h,
                       ),
                       decoration: BoxDecoration(
-                        color: (appColors.primaryColor ?? AppStaticColor.primaryAmber)
+                        color: (appColors.primaryColor ?? AppStaticColor.primary)
                             .withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(10.r),
                       ),
@@ -646,11 +655,11 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
                       Container(
                         padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 6.h),
                         decoration: BoxDecoration(
-                          color: (appColors.primaryColor ?? AppStaticColor.primaryAmber)
+                          color: (appColors.primaryColor ?? AppStaticColor.primary)
                               .withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(12.r),
                           border: Border.all(
-                            color: (appColors.primaryColor ?? AppStaticColor.primaryAmber)
+                            color: (appColors.primaryColor ?? AppStaticColor.primary)
                                 .withValues(alpha: 0.3),
                             width: 0.5,
                           ),
@@ -715,8 +724,8 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          appColors.primaryColor ?? AppStaticColor.primaryAmber,
-                          (appColors.primaryColor ?? AppStaticColor.primaryAmber)
+                          appColors.buttonColor ?? AppStaticColor.primary,
+                          (appColors.buttonColor ?? AppStaticColor.primary)
                               .withValues(alpha: 0.85),
                         ],
                         begin: Alignment.topLeft,
@@ -725,7 +734,7 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
                       borderRadius: BorderRadius.circular(18.r),
                       boxShadow: [
                         BoxShadow(
-                          color: (appColors.primaryColor ?? AppStaticColor.primaryAmber)
+                          color: (appColors.buttonColor ?? AppStaticColor.primary)
                               .withValues(alpha: 0.3),
                           blurRadius: 15,
                           offset: const Offset(0, 5),
@@ -846,7 +855,7 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
             Container(
               padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 4.h),
               decoration: BoxDecoration(
-                color: (appColors.primaryColor ?? AppStaticColor.primaryAmber)
+                color: (appColors.primaryColor ?? AppStaticColor.primary)
                     .withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20.r),
               ),
@@ -932,10 +941,19 @@ class _EqubDetailScreenState extends State<EqubDetailScreen>
   /// contribution plus one for every place they hold under "My Responsibility
   /// People". Quoting their own share alone was the bug — the button promised
   /// one amount and checkout asked for another.
-  String _payLabel(PaymentScheduleItem item, EqubGroup group) {
-    // The same figure the confirmation dialog charges: only the places that
-    // still owe this date. See _roundStillOwed.
-    final owed = _roundStillOwed(group, item.dueDate);
+  String _payLabel(
+    PaymentScheduleItem item,
+    EqubGroup group,
+    List<PaymentScheduleItem> schedule,
+  ) {
+    // The same figure the confirmation dialog charges: the round the payment
+    // will really settle (an older one still owed goes first — see
+    // _roundToCharge), and only the places that still owe it. See
+    // _roundStillOwed.
+    final owed = _roundStillOwed(
+      group,
+      _roundToCharge(group, schedule, item.dueDate),
+    );
     final amount = owed.total > 0
         ? owed.total
         : (group.birrPerDay?.toDouble() ?? 0);
@@ -981,14 +999,17 @@ class _WinnerObligationBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     final appColors = colors(context);
     final formatted = NumberFormat('#,##0').format(remaining);
+    // Amber that is readable on white and on black alike; the old brown
+    // title was 2.4:1 on a dark card.
+    final warning = niya(context).warning;
 
     return Container(
       width: double.infinity,
       padding: EdgeInsets.all(12.r),
       decoration: BoxDecoration(
-        color: Colors.amber.withValues(alpha: 0.12),
+        color: warning.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(14.r),
-        border: Border.all(color: Colors.amber.withValues(alpha: 0.4)),
+        border: Border.all(color: warning.withValues(alpha: 0.4)),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -996,7 +1017,7 @@ class _WinnerObligationBanner extends StatelessWidget {
           Icon(
             Icons.emoji_events_rounded,
             size: 18.sp,
-            color: const Color(0xFFB45309),
+            color: warning,
           ),
           SizedBox(width: 10.w),
           Expanded(
@@ -1007,7 +1028,7 @@ class _WinnerObligationBanner extends StatelessWidget {
                   title: 'winner_obligation_title'.tr,
                   fontSize: 12.5.sp,
                   fontWeight: FontWeight.w800,
-                  textColor: const Color(0xFF92400E),
+                  textColor: warning,
                 ),
                 SizedBox(height: 3.h),
                 CustomText(
@@ -1085,12 +1106,12 @@ class _LeaveConfirmationDialogState extends State<_LeaveConfirmationDialog> {
               Container(
                 padding: EdgeInsets.all(16.r),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.1),
+                  color: niya(context).danger.withValues(alpha: 0.1),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
                   Icons.warning_amber_rounded,
-                  color: Colors.redAccent,
+                  color: niya(context).danger,
                   size: 32.sp,
                 ),
               ),
@@ -1117,10 +1138,10 @@ class _LeaveConfirmationDialogState extends State<_LeaveConfirmationDialog> {
                 width: double.infinity,
                 padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 12.h),
                 decoration: BoxDecoration(
-                  color: Colors.red.withValues(alpha: 0.06),
+                  color: niya(context).danger.withValues(alpha: 0.06),
                   borderRadius: BorderRadius.circular(12.r),
                   border: Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.25),
+                    color: niya(context).danger.withValues(alpha: 0.25),
                   ),
                 ),
                 child: Column(
@@ -1139,7 +1160,7 @@ class _LeaveConfirmationDialogState extends State<_LeaveConfirmationDialog> {
                       fontWeight: FontWeight.w900,
                       letterSpacing: 0.5,
                       textAlign: TextAlign.center,
-                      textColor: Colors.redAccent,
+                      textColor: niya(context).danger,
                     ),
                   ],
                 ),
@@ -1171,7 +1192,7 @@ class _LeaveConfirmationDialogState extends State<_LeaveConfirmationDialog> {
                   suffixIcon: _matches
                       ? Icon(
                           Icons.check_circle_rounded,
-                          color: Colors.green,
+                          color: niya(context).success,
                           size: 20.sp,
                         )
                       : null,
@@ -1184,7 +1205,9 @@ class _LeaveConfirmationDialogState extends State<_LeaveConfirmationDialog> {
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12.r),
                     borderSide: BorderSide(
-                      color: _matches ? Colors.green : Colors.redAccent,
+                      color: _matches
+                          ? niya(context).success
+                          : niya(context).danger,
                       width: 1.5,
                     ),
                   ),
@@ -1228,10 +1251,10 @@ class _LeaveConfirmationDialogState extends State<_LeaveConfirmationDialog> {
                                     EqubDetailLeaveEvent(widget.membershipId),
                                   );
                                 },
-                          backgroundColor: Colors.redAccent,
+                          backgroundColor: NiyaPalette.danger,
                           foregroundColor: Colors.white,
                           disabledBackgroundColor:
-                              Colors.redAccent.withValues(alpha: 0.25),
+                              NiyaPalette.danger.withValues(alpha: 0.25),
                           disabledForegroundColor:
                               Colors.white.withValues(alpha: 0.7),
                           borderRadius: 12.r,
@@ -1357,7 +1380,7 @@ class _PaymentTabState extends State<_PaymentTab> {
   Widget build(BuildContext context) {
     final appColors = colors(context);
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primary = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+    final primary = appColors.primaryColor ?? AppStaticColor.primary;
     final border = appColors.borderColor ?? Colors.grey;
 
     final today = _day(DateTime.now());
@@ -1405,7 +1428,7 @@ class _PaymentTabState extends State<_PaymentTab> {
           Positioned(
             top: 1,
             right: 1,
-            child: Icon(Icons.flag_rounded, size: 13.r, color: _startColor),
+            child: Icon(Icons.flag_rounded, size: 13.r, color: appColors.bodyTextSmallColor ?? _startColor),
           ),
         ],
       );
@@ -1474,7 +1497,7 @@ class _PaymentTabState extends State<_PaymentTab> {
                   fontSize: 11.sp,
                 ),
                 weekendStyle: TextStyle(
-                  color: Colors.redAccent.withValues(alpha: 0.85),
+                  color: niya(context).danger.withValues(alpha: 0.85),
                   fontWeight: FontWeight.w700,
                   fontSize: 11.sp,
                 ),
@@ -1525,14 +1548,14 @@ class _PaymentTabState extends State<_PaymentTab> {
             SizedBox(height: 10.h),
             Divider(height: 1, color: border.withValues(alpha: 0.4)),
             SizedBox(height: 12.h),
-            _buildLegend(appColors, primary, showStart: start != null),
+            _buildLegend(appColors, showStart: start != null),
           ],
         ),
       ),
     );
   }
 
-  static const Color _startColor = Color(0xFF6D4AFF);
+  static const Color _startColor = Color(0xFF5E5A5B);
 
   /// "September 2026", then Today and the two arrows.
   ///
@@ -1679,7 +1702,7 @@ class _PaymentTabState extends State<_PaymentTab> {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(Icons.flag_rounded, size: 14.r, color: _startColor),
+                Icon(Icons.flag_rounded, size: 14.r, color: appColors.bodyTextSmallColor ?? _startColor),
                 SizedBox(width: 4.w),
                 CustomText(
                   title: 'calendar_started_on'.trParams({
@@ -1735,19 +1758,19 @@ class _PaymentTabState extends State<_PaymentTab> {
       children: [
         chip(
           Icons.check_circle_rounded,
-          Colors.green.shade600,
+          niya(context).success,
           'calendar_rounds_paid'.trParams({'paid': '$paid', 'total': '$total'}),
         ),
         if (overdue > 0)
           chip(
             Icons.error_rounded,
-            Colors.redAccent,
+            niya(context).danger,
             'calendar_overdue_count'.trParams({'n': '$overdue'}),
           ),
         if (nextDue != null)
           chip(
             Icons.schedule_rounded,
-            Colors.blue.shade600,
+            appColors.primaryColor ?? AppStaticColor.primary,
             'calendar_next_due'.trParams({
               'date': DateFormat('MMM d').format(nextDue),
             }),
@@ -1767,7 +1790,6 @@ class _PaymentTabState extends State<_PaymentTab> {
 
     Widget circle({
       Color? fill,
-      Gradient? gradient,
       Color? outline,
       double outlineWidth = 1,
       required Color text,
@@ -1779,7 +1801,6 @@ class _PaymentTabState extends State<_PaymentTab> {
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: fill,
-          gradient: gradient,
           shape: BoxShape.circle,
           border: outline == null
               ? null
@@ -1793,18 +1814,16 @@ class _PaymentTabState extends State<_PaymentTab> {
       );
     }
 
+    // Solid green carrying white: the old light-green gradient put the day
+    // number at 2.4:1, too faint to read at a glance.
     if (status == PaymentScheduleStatus.paid) {
       return circle(
-        gradient: LinearGradient(
-          colors: [Colors.green.shade400, Colors.green.shade600],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
+        fill: NiyaPalette.success,
         text: Colors.white,
         weight: FontWeight.w700,
         shadow: [
           BoxShadow(
-            color: Colors.green.withValues(alpha: 0.25),
+            color: NiyaPalette.success.withValues(alpha: 0.25),
             blurRadius: 4,
             offset: const Offset(0, 2),
           ),
@@ -1813,29 +1832,41 @@ class _PaymentTabState extends State<_PaymentTab> {
     }
 
     if (status == PaymentScheduleStatus.unpaid) {
+      final danger = niya(context).danger;
       return circle(
-        fill: Colors.red.withValues(alpha: 0.08),
-        outline: Colors.redAccent.withValues(alpha: 0.55),
-        text: Colors.redAccent,
+        fill: danger.withValues(alpha: 0.08),
+        outline: danger.withValues(alpha: 0.55),
+        text: danger,
       );
     }
 
+    // Due today is solid maroon, so it never reads as overdue red. The fill
+    // maroon, not the text one: the logo maroon all but vanishes on a dark
+    // card, and white has to be readable inside the circle.
     if (status == PaymentScheduleStatus.pending || isToday) {
-      final color = appColors.primaryColor ?? AppStaticColor.primaryAmber;
+      final due = appColors.buttonColor ?? AppStaticColor.primary;
       return circle(
-        fill: color.withValues(alpha: 0.15),
-        outline: color,
-        outlineWidth: 1.5,
-        text: color,
+        fill: due,
+        text: Colors.white,
         weight: FontWeight.w800,
+        shadow: [
+          BoxShadow(
+            color: due.withValues(alpha: 0.3),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       );
     }
 
     if (status == PaymentScheduleStatus.future) {
+      final color = isDark
+          ? AppStaticColor.textSubDark
+          : AppStaticColor.textSubLight;
       return circle(
-        fill: Colors.blue.withValues(alpha: 0.08),
-        outline: Colors.blue.withValues(alpha: 0.35),
-        text: isDark ? Colors.blue.shade300 : Colors.blue.shade700,
+        fill: color.withValues(alpha: 0.08),
+        outline: color.withValues(alpha: 0.4),
+        text: color,
         weight: FontWeight.w500,
       );
     }
@@ -1853,23 +1884,27 @@ class _PaymentTabState extends State<_PaymentTab> {
     );
   }
 
-  Widget _buildLegend(
-    AppColors appColors,
-    Color primary, {
-    required bool showStart,
-  }) {
+  Widget _buildLegend(AppColors appColors, {required bool showStart}) {
     return Wrap(
       alignment: WrapAlignment.center,
       spacing: 14.w,
       runSpacing: 8.h,
       children: [
-        _legendItem(Colors.green.shade600, 'paid'.tr, appColors),
-        _legendItem(Colors.redAccent, 'overdue'.tr, appColors),
-        _legendItem(primary, 'due_today'.tr, appColors),
-        _legendItem(Colors.blue.shade400, 'upcoming'.tr, appColors),
+        _legendItem(NiyaPalette.success, 'paid'.tr, appColors),
+        _legendItem(niya(context).danger, 'overdue'.tr, appColors),
+        _legendItem(
+          appColors.buttonColor ?? AppStaticColor.primary,
+          'due_today'.tr,
+          appColors,
+        ),
+        _legendItem(
+          appColors.bodyTextSmallColor ?? Colors.grey,
+          'upcoming'.tr,
+          appColors,
+        ),
         if (showStart)
           _legendItem(
-            _startColor,
+            appColors.bodyTextSmallColor ?? _startColor,
             'calendar_start'.tr,
             appColors,
             icon: Icons.flag_rounded,
@@ -1950,64 +1985,96 @@ String _relativeDay(DateTime day) {
 }
 
 /// Whether [place] has already paid the round due on [dayKey] (`yyyy-MM-dd`).
+bool _placePaidFor(EqubMembership place, String dayKey) =>
+    _paidDays(place).contains(dayKey);
+
+/// Every day (`yyyy-MM-dd`) [place] has already paid for.
 ///
-/// Decided exactly the way the calendar colours that day (see
-/// PaymentCalculator.paidRoundIndexes): a payment counts for the round it was
-/// made for, and only one made for no round at all falls back to the earliest
-/// open one. This check and the calendar used to follow different rules, so a
-/// day could look unpaid on the calendar and still be refused here as
-/// "already paid".
+/// A round's day is in here when PaymentCalculator.paidRoundIndexes counts that
+/// round as paid: a contribution counts for the round on its own date, and
+/// only one dated for no round at all fills the earliest round still open.
+/// The calendar is coloured by exactly that rule (EqubDetailBloc), and so,
+/// since the fix there, is the server's own schedule — so a day that looks
+/// open on the calendar is a day this check lets the member pay.
 ///
-/// A payment made for [dayKey] itself always counts, which is also exactly
-/// what the server's own double-payment guard compares.
-bool _placePaidFor(EqubMembership place, String dayKey) {
+/// Any other day a settled contribution was made for is in here as well,
+/// because that is exactly what the server's double-payment guard compares:
+/// it refuses a charge for a date that already has one.
+///
+/// Built once per place, rather than re-running the round matching for every
+/// round of the schedule — a three-year daily Equb has over a thousand.
+Set<String> _paidDays(EqubMembership place) {
   final payments = place.payments ?? const <EqubPayment>[];
   final rounds = place.paymentSchedule;
+  final days = <String>{};
 
   if (rounds != null && rounds.isNotEmpty) {
     final dates = [for (final r in rounds) r.expectedDate];
-    final index = dates.indexWhere(
-      (d) => PaymentCalculator.dayKey(d) == dayKey,
-    );
-
-    if (index != -1) {
-      return PaymentCalculator.paidRoundIndexes(
-        roundDates: dates,
-        payments: payments,
-      ).contains(index);
+    for (final i in PaymentCalculator.paidRoundIndexes(
+      roundDates: dates,
+      payments: payments,
+    )) {
+      final key = PaymentCalculator.dayKey(dates[i]);
+      if (key != null) days.add(key);
     }
   }
 
   for (final p in payments) {
-    if (p.isPaid && PaymentCalculator.dayKey(p.paymentDate) == dayKey) {
-      return true;
-    }
+    if (!p.isPaid) continue;
+    final key = PaymentCalculator.dayKey(p.paymentDate);
+    if (key != null) days.add(key);
   }
-  return false;
+
+  return days;
 }
 
 /// The rounds that have to be paid before any later one, oldest first:
-/// every round from the member's first day up to and including today that is
-/// not fully paid.
+/// every round from the member's first day up to and including today that
+/// some place still owes.
 ///
-/// Read from the dates rather than only from each round's status, so a screen
-/// left open past midnight still counts the round that has just fallen due;
-/// and a round counts only while some place really still owes it, so one the
-/// schedule and the payments disagree about can never block every payment.
+/// Decided by what each place has actually paid (see _paidDays), and NOT
+/// filtered by each round's `status`. That filter is what made the last round
+/// of an Equb impossible to pay: a server that marked the first N rounds paid
+/// for N contributions left the real open round marked "paid" — so it was
+/// never offered — and offered a later round the payments already covered,
+/// which this screen then refused as already paid. Every round the member
+/// owes is now reachable whatever the server says each one's status is.
+///
+/// Read from the dates rather than from the status for the same reason a
+/// screen left open past midnight still counts the round that has just
+/// fallen due.
 List<PaymentScheduleItem> _unpaidDueRounds(
   List<PaymentScheduleItem> schedule,
   EqubGroup group,
 ) {
   final today = _scheduleDayKey(DateTime.now());
-  return schedule
-      .where(
-        (s) =>
-            s.status != PaymentScheduleStatus.paid &&
-            _scheduleDayKey(s.dueDate).compareTo(today) <= 0 &&
-            _roundStillOwed(group, s.dueDate).places.isNotEmpty,
-      )
-      .toList()
+  final paidByPlace = [
+    for (final place in group.myPlaces)
+      if (place.id != null) _paidDays(place),
+  ];
+  if (paidByPlace.isEmpty) return const [];
+
+  return schedule.where((s) {
+    final day = _scheduleDayKey(s.dueDate);
+    return day.compareTo(today) <= 0 &&
+        paidByPlace.any((paid) => !paid.contains(day));
+  }).toList()
     ..sort((a, b) => a.dueDate.compareTo(b.dueDate));
+}
+
+/// The round a payment asked for on [requested] will actually settle: the
+/// oldest round that has fallen due and is still owed, if one is left
+/// behind, otherwise [requested] itself.
+///
+/// The confirmation dialog redirects to it, and the Pay button's label is
+/// priced from it, so the figure on the button is the figure charged.
+DateTime _roundToCharge(
+  EqubGroup group,
+  List<PaymentScheduleItem> schedule,
+  DateTime requested,
+) {
+  final behind = _unpaidDueRounds(schedule, group);
+  return behind.isEmpty ? requested : behind.first.dueDate;
 }
 
 /// A schedule date as `yyyy-MM-dd`, read the same way the payment request
@@ -2053,7 +2120,7 @@ void _showPaymentConfirmationDialog(
   if (all.isEmpty) {
     Get.rawSnackbar(
       message: "no_membership_found".tr,
-      backgroundColor: Colors.orange,
+      backgroundColor: NiyaPalette.warning,
     );
     return;
   }
@@ -2061,7 +2128,7 @@ void _showPaymentConfirmationDialog(
   if (places.isEmpty) {
     Get.rawSnackbar(
       message: "round_already_paid".tr,
-      backgroundColor: const Color(0xFF1E7A4C),
+      backgroundColor: NiyaPalette.success,
     );
     return;
   }
@@ -2192,10 +2259,10 @@ void _showPaymentConfirmationDialog(
                       width: double.infinity,
                       padding: EdgeInsets.all(12.r),
                       decoration: BoxDecoration(
-                        color: Colors.orange.withValues(alpha: 0.10),
+                        color: niya(ctx).warning.withValues(alpha: 0.10),
                         borderRadius: BorderRadius.circular(14.r),
                         border: Border.all(
-                          color: Colors.orange.withValues(alpha: 0.35),
+                          color: niya(ctx).warning.withValues(alpha: 0.35),
                         ),
                       ),
                       child: Row(
@@ -2204,7 +2271,7 @@ void _showPaymentConfirmationDialog(
                           Icon(
                             Icons.info_outline_rounded,
                             size: 18.sp,
-                            color: Colors.orange.shade800,
+                            color: niya(ctx).warning,
                           ),
                           SizedBox(width: 8.w),
                           Expanded(
@@ -2234,10 +2301,13 @@ void _showPaymentConfirmationDialog(
                         vertical: 12.h,
                       ),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED).withValues(alpha: 0.07),
+                        color: (appColors.primaryColor ?? AppStaticColor.primary)
+                            .withValues(alpha: 0.07),
                         borderRadius: BorderRadius.circular(14.r),
                         border: Border.all(
-                          color: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                          color: (appColors.primaryColor ??
+                                  AppStaticColor.primary)
+                              .withValues(alpha: 0.2),
                         ),
                       ),
                       child: Column(
@@ -2254,7 +2324,7 @@ void _showPaymentConfirmationDialog(
                                         : Icons.person_outline_rounded,
                                     size: 13.sp,
                                     color: place.isResponsibilitySeat
-                                        ? const Color(0xFF7C3AED)
+                                        ? appColors.primaryColor
                                         : appColors.bodyTextSmallColor,
                                   ),
                                   SizedBox(width: 8.w),
@@ -2284,7 +2354,9 @@ void _showPaymentConfirmationDialog(
                             ),
                           Divider(
                             height: 12.h,
-                            color: const Color(0xFF7C3AED).withValues(alpha: 0.2),
+                            color: (appColors.primaryColor ??
+                                    AppStaticColor.primary)
+                                .withValues(alpha: 0.2),
                           ),
                           Row(
                             children: [
@@ -2300,7 +2372,7 @@ void _showPaymentConfirmationDialog(
                                 title: '${money.format(total)} ETB',
                                 fontSize: 14.sp,
                                 fontWeight: FontWeight.w900,
-                                textColor: const Color(0xFF7C3AED),
+                                textColor: appColors.primaryColor,
                               ),
                             ],
                           ),
@@ -2353,7 +2425,7 @@ void _showPaymentConfirmationDialog(
                                 );
                               },
                               submitting: isLoading,
-                              backgroundColor: appColors.primaryColor,
+                              backgroundColor: appColors.buttonColor,
                               foregroundColor: Colors.white,
                               fontSize: 15.sp,
                               height: 50.h,
@@ -2391,7 +2463,6 @@ class _TermsTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final appColors = colors(context);
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final terms = _terms;
 
     if (terms == null) {
@@ -2419,7 +2490,8 @@ class _TermsTab extends StatelessWidget {
       );
     }
 
-    final accent = isDark ? NiyaPalette.goldLight : NiyaPalette.maroon;
+    final skin = niya(context);
+    final accent = skin.accent;
 
     return ListView(
       padding: EdgeInsets.fromLTRB(16.w, 12.h, 16.w, 24.h),
@@ -2430,7 +2502,11 @@ class _TermsTab extends StatelessWidget {
             onPressed: () => TermsScreen.open(
               context,
               terms: terms,
-              subtitle: group.name,
+              subtitle: planDisplayName(
+                name: group.name,
+                packageName: group.package?.name,
+                frequencyDays: group.contributionFrequencyDays,
+              ),
             ),
             icon: Icon(Icons.open_in_full_rounded, size: 16.sp, color: accent),
             label: CustomText(
@@ -2445,13 +2521,13 @@ class _TermsTab extends StatelessWidget {
         Container(
           padding: EdgeInsets.fromLTRB(16.w, 18.h, 16.w, 18.h),
           decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF131B33) : NiyaPalette.paper,
+            color: skin.paper,
             borderRadius: BorderRadius.circular(18.r),
-            border: Border.all(color: NiyaPalette.gold.withValues(alpha: 0.5)),
+            border: Border.all(color: skin.line),
           ),
           child: TermsContentView(
             text: terms,
-            color: isDark ? const Color(0xFFE9E6DF) : NiyaPalette.ink,
+            color: skin.ink,
           ),
         ),
       ],
@@ -2504,9 +2580,10 @@ class _HistoryTab extends StatelessWidget {
         // Paid, declined by the bank, or still being confirmed. History now
         // carries all three (it used to receive paid rows only), so each
         // needs to read as what it is at a glance.
+        final skin = niya(context);
         final Color tone = isPaid
-            ? Colors.green
-            : (p.isFailed ? const Color(0xFFB01F2E) : Colors.orange);
+            ? skin.success
+            : (p.isFailed ? skin.danger : skin.warning);
         return Container(
           padding: EdgeInsets.all(16.r),
           decoration: BoxDecoration(
@@ -2655,10 +2732,10 @@ class _DrawTab extends StatelessWidget {
             return Container(
               padding: EdgeInsets.all(20.r),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
+                gradient: const LinearGradient(
                   colors: [
-                    const Color(0xFFB8860B), // Dark Goldenrod
-                    const Color(0xFFDAA520), // Goldenrod
+                    AppStaticColor.primaryLight,
+                    AppStaticColor.primaryDeep,
                   ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
@@ -2666,7 +2743,7 @@ class _DrawTab extends StatelessWidget {
                 borderRadius: BorderRadius.circular(24.r),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFFDAA520).withValues(alpha: 0.3),
+                    color: AppStaticColor.primary.withValues(alpha: 0.3),
                     blurRadius: 15,
                     offset: const Offset(0, 8),
                   ),
@@ -2758,7 +2835,7 @@ class _DrawTab extends StatelessWidget {
                                 style: TextStyle(
                                   fontSize: 18.sp,
                                   fontWeight: FontWeight.w800,
-                                  color: appColors.primaryColor,
+                                  color: AppStaticColor.primary,
                                 ),
                                 textAlign: TextAlign.center,
                               ),
@@ -3114,20 +3191,20 @@ class _DrawStatusCard extends StatelessWidget {
     final String headline;
 
     if (won) {
-      accent = const Color(0xFFB8860B);
+      accent = appColors.primaryColor ?? AppStaticColor.primary;
       icon = Icons.emoji_events_rounded;
       final on = _date(place.winDate);
       headline = on == null ? 'won'.tr : 'draw_won_on'.trParams({'date': on});
     } else if (!active) {
-      accent = Colors.blueGrey;
+      accent = niya(context).inkSoft;
       icon = Icons.pause_circle_outline_rounded;
       headline = 'draw_place_inactive'.tr;
     } else if (eligible) {
-      accent = const Color(0xFF1E7A4C);
+      accent = niya(context).success;
       icon = Icons.verified_rounded;
       headline = 'draw_eligible'.tr;
     } else {
-      accent = Colors.orange;
+      accent = niya(context).warning;
       icon = Icons.info_outline_rounded;
       headline = 'draw_needs_first_payment'.tr;
     }

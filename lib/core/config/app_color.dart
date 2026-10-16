@@ -80,42 +80,67 @@ class AppColors extends ThemeExtension<AppColors> {
   }
 }
 
+/// The Niya colours: the maroon of the logo, with white and black.
+///
+/// Screens take their colours from here, either through [AppColors] (the ones
+/// that follow light and dark mode) or directly (the few that are the same in
+/// both). Change a colour here and every screen follows.
 class AppStaticColor {
-  // --- Dashboard Brand Palette ---
-  static const Color primaryAmber = Color.fromARGB(
-    255,
-    215,
-    162,
-    3,
-  ); // Friendly Parent-Blue
+  // --- Brand ---
+
+  /// The logo maroon: app bars, buttons, links, selected states.
+  static const Color primary = Color(0xFF8E1B32);
+
+  /// Deeper maroon: pressed buttons, the dark end of gradients, accents.
+  static const Color primaryDeep = Color(0xFF6E1426);
+
+  /// Lighter maroon: the bright end of gradients.
+  static const Color primaryLight = Color(0xFFA8263F);
+
+  /// Maroon for TEXT and icons in dark mode. The logo maroon on black is
+  /// 2.1:1 — unreadable — so dark mode uses this lifted one instead.
+  static const Color primaryOnDark = Color(0xFFE8637C);
+
+  /// Maroon for a FILL in dark mode: an app bar, a button, a chip that
+  /// carries white on it. Brighter than the logo maroon so it lifts off a
+  /// black page, dark enough that white still reads on it.
+  static const Color primaryFillDark = Color(0xFFB02A44);
+
+  /// A faint maroon wash: selected rows, chips, icon circles.
+  static const Color primaryTint = Color(0xFFF7E9EC);
+
+  /// The brand colour used to be amber. Kept so older code still builds.
+  @Deprecated('Use AppStaticColor.primary')
+  static const Color primaryAmber = primary;
+
   static const Color secondaryTeal = Color(0xFF50E3C2); // Success/Growth color
 
-  // --- Dark Mode Palette (Parent Dashboard Deep) ---
-  static const Color bgDark = Color(0xFF1A1D21); // Deep Charcoal
-  static const Color surfaceDark = Color(0xFF262A31); // Elevated Card/Accent
-  static const Color borderDark = Color(0xFF363C44); // Subtle dividers
-  static const Color textMainDark = Color(0xFFF1F3F5); // High emphasis text
-  static const Color textSubDark = Color(0xFF9BA3AF); // Low emphasis text
+  // --- Dark mode: black, with maroon accents ---
+  static const Color bgDark = Color(0xFF111111); // Page
+  static const Color surfaceDark = Color(0xFF1C1A1B); // Cards, sheets
+  static const Color borderDark = Color(0xFF332E2F); // Dividers, outlines
+  static const Color textMainDark = Color(0xFFF5F2F2); // Main text
+  static const Color textSubDark = Color(0xFFADA5A7); // Secondary text
 
-  // --- Light Mode Palette (Clean Dashboard) ---
-  static const Color bgLight = Color(0xFFF8FAFC); // Soft White/Blue tint
-  static const Color surfaceLight = Color(0xFFFFFFFF); // Pure White Cards
-  static const Color borderLight = Color(0xFFE2E8F0); // Light Gray Border
-  static const Color textMainLight = Color(0xFF1E293B); // Dark Navy Text
-  static const Color textSubLight = Color(0xFF64748B); // Slate Grey Text
+  // --- Light mode: white cards on a warm white page, black text ---
+  static const Color bgLight = Color(0xFFF7F5F5); // Page
+  static const Color surfaceLight = Color(0xFFFFFFFF); // Cards, sheets
+  static const Color borderLight = Color(0xFFE9E3E4); // Dividers, outlines
+  static const Color textMainLight = Color(0xFF111111); // Main text
+  static const Color textSubLight = Color(0xFF5E5A5B); // Secondary text
 
   // Standard Colors
   static const Color warningYellow = Color(0xFFF59E0B);
-  static const Color errorRed = Color(0xFFEF4444);
+  static const Color errorRed = Color(0xFFD32F2F);
   static const Color white = Color(0xFFFFFFFF);
   static const Color black = Color(0xFF000000);
 }
 
 // --- Dark Mode Implementation ---
 final darkColors = AppColors(
-  primaryColor: AppStaticColor.primaryAmber,
+  primaryColor: AppStaticColor.primaryOnDark,
   accentColor: AppStaticColor.surfaceDark,
-  buttonColor: AppStaticColor.primaryAmber,
+  buttonColor: AppStaticColor.primaryFillDark,
   buttonTextColor: AppStaticColor.white,
   bodyTextColor: AppStaticColor.textMainDark,
   bodyTextSmallColor: AppStaticColor.textSubDark,
@@ -127,9 +152,9 @@ final darkColors = AppColors(
 
 // --- Light Mode Implementation ---
 final lightColors = AppColors(
-  primaryColor: AppStaticColor.primaryAmber,
+  primaryColor: AppStaticColor.primary,
   accentColor: AppStaticColor.surfaceLight,
-  buttonColor: AppStaticColor.primaryAmber,
+  buttonColor: AppStaticColor.primary,
   buttonTextColor: AppStaticColor.white,
   bodyTextColor: AppStaticColor.textMainLight,
   bodyTextSmallColor: AppStaticColor.textSubLight,

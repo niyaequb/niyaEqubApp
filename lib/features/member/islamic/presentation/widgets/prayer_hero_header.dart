@@ -127,7 +127,26 @@ class _PrayerHeroHeaderState extends State<PrayerHeroHeader> {
           // lets it stay that light.
           ClipRRect(
             borderRadius: BorderRadius.vertical(bottom: Radius.circular(24.r)),
-            child: ColoredBox(color: const Color.fromARGB(230, 0, 0, 0).withValues(alpha: 0.20)),
+            // Maroon rising from the bottom edge, where the countdown sits, so
+            // the header belongs to the same app as every maroon header; the
+            // top of the photograph stays clear.
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.bottomCenter,
+                  end: Alignment.topCenter,
+                  colors: [
+                    // Reduced opacity from 0.82 to 0.55 (or lower)
+                    IslamicColors.primaryDark.withValues(alpha: 0.65),
+                    // Reduced opacity from 0.35 to 0.20
+                    IslamicColors.primary.withValues(alpha: 0.25),
+                    // Reduced opacity from 0.12 to 0.05
+                    Colors.black.withValues(alpha: 0.07),
+                  ],
+                  stops: const [0, 0.55, 1],
+                ),
+              ),
+            ),
           ),
 
           // 3. Header Text & Interactive Controls
@@ -234,7 +253,7 @@ class _PrayerHeroHeaderState extends State<PrayerHeroHeader> {
         child: Container(
           padding: EdgeInsets.symmetric(horizontal: 14.w, vertical: 7.h),
           decoration: BoxDecoration(
-            color: Colors.black.withValues(alpha: 0.45),
+            color: IslamicColors.primaryDeep.withValues(alpha: 0.6),
             borderRadius: BorderRadius.circular(30.r),
             border: Border.all(
               color: Colors.white.withValues(alpha: 0.25),
@@ -247,7 +266,7 @@ class _PrayerHeroHeaderState extends State<PrayerHeroHeader> {
               Icon(
                 Icons.location_on_rounded,
                 size: 15.sp,
-                color: IslamicColors.mosqueDome,
+                color: Colors.white,
               ),
               SizedBox(width: 6.w),
               ConstrainedBox(

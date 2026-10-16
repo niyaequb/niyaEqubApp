@@ -84,7 +84,7 @@ class CustomPhoneField extends StatelessWidget {
           borderRadius: BorderRadius.circular(borderRadius),
           borderSide: BorderSide(
             color: isDark
-                ? const Color(0xFF38434F)
+                ? const Color(0xFF3A3436)
                 : primaryColor.withValues(alpha: 0.3),
           ),
         ),

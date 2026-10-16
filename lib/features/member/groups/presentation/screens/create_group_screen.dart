@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import 'package:niya_equb/core/init/injections.dart';
 import 'package:niya_equb/core/service/snack_bar.dart';
 import 'package:niya_equb/core/util/html_text.dart';
+import 'package:niya_equb/core/util/package_names.dart';
 import 'package:niya_equb/features/member/groups/data/repository/group_equb_repository.dart';
 import 'package:niya_equb/features/member/groups/presentation/screens/group_detail_screen.dart';
 import 'package:niya_equb/features/member/groups/presentation/widgets/group_ledger_widgets.dart';
@@ -29,7 +30,7 @@ class CreateGroupScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) =>
-      const NiyaNightTheme(child: _CreateGroupForm());
+      const NiyaBrandTheme(child: _CreateGroupForm());
 }
 
 class _CreateGroupForm extends StatefulWidget {
@@ -164,10 +165,11 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
     // contract to the last line and only then be told their group has no name.
     if (validateFirst && !_validateForm()) return;
 
+    final equb = _equb;
     final accepted = await TermsScreen.open(
       context,
       terms: text,
-      subtitle: _equb?.name,
+      subtitle: equb == null ? null : _equbTitle(equb),
       requireAcceptance: true,
     );
 
@@ -237,7 +239,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
 
   @override
   Widget build(BuildContext context) {
-    return NiyaNightScaffold(
+    return NiyaScaffold(
       title: 'New Group Equb'.tr,
       bottomBar: _loading || _equbs.isEmpty ? null : _bottomBar,
       body: _body,
@@ -303,7 +305,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
                 ? null
                 : NiyaPill(
                     label: '${_pendingPhones.length}',
-                    color: NiyaPalette.goldLight,
+                    color: niya(context).accent,
                   ),
           ),
           SizedBox(height: 6.h),
@@ -342,7 +344,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
   Widget _bottomBar(BuildContext context) {
     final mustRead = _needsTerms && !_termsSettled;
 
-    return NiyaGoldButton(
+    return NiyaPrimaryButton(
       label: mustRead
           ? 'Read and accept the terms'.tr
           : 'Accept and create group'.tr,
@@ -383,7 +385,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
   Widget _hint(String text) => Text(
     text,
     style: TextStyle(
-      color: Colors.white60,
+      color: niya(context).inkSoft,
       fontSize: 11.sp,
       fontWeight: FontWeight.w500,
       height: 1.35,
@@ -408,11 +410,11 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  equb?.name ?? 'Choose an Equb'.tr,
+                  equb == null ? 'Choose an Equb'.tr : _equbTitle(equb),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: niya(context).ink,
                     fontSize: 14.5.sp,
                     fontWeight: FontWeight.w800,
                   ),
@@ -425,7 +427,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: niya(context).inkSoft,
                       fontSize: 11.5.sp,
                       fontWeight: FontWeight.w600,
                     ),
@@ -438,7 +440,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
           Icon(
             Icons.expand_more_rounded,
             size: 22.r,
-            color: NiyaPalette.goldLight,
+            color: niya(context).accent,
           ),
         ],
       ),
@@ -452,7 +454,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
     final picked = await showModalBottomSheet<JoinableEqub>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: NiyaPalette.navy,
+      backgroundColor: niya(context).paper,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(22.r)),
       ),
@@ -472,7 +474,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
     final roundTotal = perPerson * _headCount;
 
     return NiyaCard(
-      color: NiyaPalette.navyDeep.withValues(alpha: 0.72),
+      color: niya(context).rose,
       padding: EdgeInsets.all(15.r),
       child: Column(
         children: [
@@ -518,7 +520,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
 
   Widget _moneyDivider() => Padding(
     padding: EdgeInsets.symmetric(vertical: 9.h),
-    child: const NiyaGoldRule(thickness: 0.8),
+    child: const NiyaRule(thickness: 0.8),
   );
 
   Widget _moneyRow(
@@ -533,7 +535,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
           child: Text(
             label,
             style: TextStyle(
-              color: Colors.white70,
+              color: niya(context).inkSoft,
               fontSize: 11.5.sp,
               fontWeight: FontWeight.w500,
             ),
@@ -543,7 +545,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
         Text(
           value,
           style: TextStyle(
-            color: tint ?? (bold ? NiyaPalette.goldLight : Colors.white),
+            color: tint ?? (bold ? niya(context).accent : niya(context).ink),
             fontSize: bold ? 15.sp : 12.5.sp,
             fontWeight: bold ? FontWeight.w900 : FontWeight.w700,
           ),
@@ -572,14 +574,14 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
               Icon(
                 Icons.description_rounded,
                 size: 16.r,
-                color: NiyaPalette.goldLight,
+                color: niya(context).accent,
               ),
               SizedBox(width: 8.w),
               Expanded(
                 child: Text(
                   'Terms and conditions'.tr,
                   style: TextStyle(
-                    color: Colors.white,
+                    color: niya(context).ink,
                     fontSize: 13.5.sp,
                     fontWeight: FontWeight.w800,
                   ),
@@ -589,8 +591,8 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
               NiyaPill(
                 label: settled ? 'Accepted'.tr : 'Not read yet'.tr,
                 color: settled
-                    ? const Color(0xFF4ADE80)
-                    : const Color(0xFFFBBF24),
+                    ? niya(context).success
+                    : niya(context).warning,
                 icon: settled
                     ? Icons.verified_rounded
                     : Icons.error_outline_rounded,
@@ -603,7 +605,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: Colors.white54,
+              color: niya(context).inkSoft,
               fontSize: 11.sp,
               fontWeight: FontWeight.w400,
               height: 1.45,
@@ -618,7 +620,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
               onPressed: _openTerms,
             )
           else
-            NiyaGoldButton(
+            NiyaPrimaryButton(
               label: 'Read the terms'.tr,
               icon: Icons.menu_book_rounded,
               height: 42.h,
@@ -683,10 +685,10 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
                 borderRadius: BorderRadius.circular(14.r),
                 color: atLimit
                     ? Colors.transparent
-                    : tint.withValues(alpha: 0.1),
+                    : tint.withValues(alpha: 0.06),
                 border: Border.all(
                   color: atLimit
-                      ? Colors.white24
+                      ? niya(context).line
                       : tint.withValues(alpha: 0.55),
                   // Dashed is not available on Border, so a lighter solid edge
                   // carries the "this is an action, not a field" signal instead.
@@ -699,7 +701,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
                   Icon(
                     atLimit ? Icons.block_rounded : Icons.person_add_alt_rounded,
                     size: 16.r,
-                    color: atLimit ? Colors.white38 : tint,
+                    color: atLimit ? niya(context).inkFaint : tint,
                   ),
                   SizedBox(width: 8.w),
                   Flexible(
@@ -712,7 +714,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: TextStyle(
-                        color: atLimit ? Colors.white38 : tint,
+                        color: atLimit ? niya(context).inkFaint : tint,
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w700,
                       ),
@@ -733,9 +735,9 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
           Container(
             padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 12.h),
             decoration: BoxDecoration(
-              color: tint.withValues(alpha: 0.16),
+              color: tint.withValues(alpha: 0.07),
               borderRadius: BorderRadius.circular(12.r),
-              border: Border.all(color: tint.withValues(alpha: 0.4)),
+              border: Border.all(color: tint.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -751,7 +753,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
                       'people': '${1 + _responsibility.length}',
                     }),
                     style: TextStyle(
-                      color: Colors.white,
+                      color: niya(context).ink,
                       fontSize: 11.sp,
                       fontWeight: FontWeight.w500,
                       height: 1.3,
@@ -797,8 +799,8 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
               height: 32.r,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: tint.withValues(alpha: 0.2),
-                border: Border.all(color: tint.withValues(alpha: 0.55)),
+                color: tint.withValues(alpha: 0.1),
+                border: Border.all(color: tint.withValues(alpha: 0.45)),
               ),
               alignment: Alignment.center,
               child: Text(
@@ -822,7 +824,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white,
+                      color: niya(context).ink,
                       fontSize: 12.5.sp,
                       fontWeight: FontWeight.w700,
                     ),
@@ -833,7 +835,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: Colors.white60,
+                      color: niya(context).inkSoft,
                       fontSize: 10.5.sp,
                       fontWeight: FontWeight.w500,
                     ),
@@ -849,7 +851,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
               icon: Icon(
                 Icons.edit_outlined,
                 size: 15.r,
-                color: NiyaPalette.goldLight,
+                color: niya(context).accent,
               ),
             ),
             SizedBox(width: 4.w),
@@ -861,7 +863,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
               icon: Icon(
                 Icons.close_rounded,
                 size: 15.r,
-                color: Colors.white60,
+                color: niya(context).inkSoft,
               ),
             ),
           ],
@@ -918,7 +920,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
   /// and the server never says, because an endpoint that answers that question
   /// turns a stolen contact list into a list of confirmed users.
   Widget _memberPhoneField(BuildContext context) {
-    const green = Color(0xFF4ADE80);
+    final green = niya(context).success;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -940,7 +942,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
                   ? Icons.check_circle_rounded
                   : Icons.check_circle_outline_rounded,
               size: 26.r,
-              color: _phoneReady ? green : Colors.white24,
+              color: _phoneReady ? green : niya(context).inkFaint,
             ),
           ),
         ),
@@ -955,7 +957,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
               Icon(
                 Icons.info_outline_rounded,
                 size: 12.r,
-                color: NiyaPalette.goldLight,
+                color: niya(context).accent,
               ),
               SizedBox(width: 6.w),
               Expanded(child: _hint('phone_ready_hint'.tr)),
@@ -988,9 +990,9 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
     return Container(
       padding: EdgeInsets.only(left: 12.w, right: 4.w, top: 4.h, bottom: 4.h),
       decoration: BoxDecoration(
-        color: NiyaPalette.maroon.withValues(alpha: 0.4),
+        color: niya(context).rose,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: NiyaPalette.gold.withValues(alpha: 0.5)),
+        border: Border.all(color: niya(context).accent.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -998,7 +1000,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
           Text(
             label,
             style: TextStyle(
-              color: NiyaPalette.goldLight,
+              color: niya(context).accent,
               fontSize: 11.5.sp,
               fontWeight: FontWeight.w700,
             ),
@@ -1011,7 +1013,7 @@ class _CreateGroupFormState extends State<_CreateGroupForm> {
             icon: Icon(
               Icons.close_rounded,
               size: 14.r,
-              color: NiyaPalette.goldLight,
+              color: niya(context).accent,
             ),
           ),
         ],
@@ -1122,7 +1124,9 @@ class _EqubPickerSheetState extends State<_EqubPickerSheet> {
                 .where(
                   (e) =>
                       e.name.toLowerCase().contains(term) ||
-                      (e.packageName ?? '').toLowerCase().contains(term),
+                      (e.packageName ?? '').toLowerCase().contains(term) ||
+                      // What the member actually sees, in their language.
+                      _equbTitle(e).toLowerCase().contains(term),
                 )
                 .toList();
     });
@@ -1146,7 +1150,7 @@ class _EqubPickerSheetState extends State<_EqubPickerSheet> {
               width: 42.w,
               height: 4.h,
               decoration: BoxDecoration(
-                color: NiyaPalette.gold.withValues(alpha: 0.5),
+                color: niya(context).inkFaint.withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(999),
               ),
             ),
@@ -1170,7 +1174,7 @@ class _EqubPickerSheetState extends State<_EqubPickerSheet> {
                       'No Equb matches that search.'.tr,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white70,
+                        color: niya(context).inkSoft,
                         fontSize: 12.sp,
                         fontWeight: FontWeight.w500,
                       ),
@@ -1208,11 +1212,11 @@ class _EqubPickerSheetState extends State<_EqubPickerSheet> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    e.name,
+                                    _equbTitle(e),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: Colors.white,
+                                      color: niya(context).ink,
                                       fontSize: 13.sp,
                                       fontWeight: FontWeight.w800,
                                     ),
@@ -1221,11 +1225,11 @@ class _EqubPickerSheetState extends State<_EqubPickerSheet> {
                                   Text(
                                     '${etb(e.contributionPerPerson)} per person · '
                                     'every ${e.frequencyDays} day(s)'
-                                    '${e.packageName != null ? ' · ${e.packageName}' : ''}',
+                                    '${e.packageName != null ? ' · ${packageDisplayName(e.packageName)}' : ''}',
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
-                                      color: Colors.white70,
+                                      color: niya(context).inkSoft,
                                       fontSize: 10.5.sp,
                                       fontWeight: FontWeight.w500,
                                       height: 1.3,
@@ -1238,7 +1242,7 @@ class _EqubPickerSheetState extends State<_EqubPickerSheet> {
                               SizedBox(width: 6.w),
                               Icon(
                                 Icons.check_circle_rounded,
-                                color: NiyaPalette.goldLight,
+                                color: niya(context).accent,
                                 size: 20.r,
                               ),
                             ],
@@ -1253,3 +1257,11 @@ class _EqubPickerSheetState extends State<_EqubPickerSheet> {
     );
   }
 }
+
+/// A platform Equb's name as the member reads it: "Al-Nur · Daily" in the
+/// app's language for the fixed packages, the admin's own name otherwise.
+String _equbTitle(JoinableEqub equb) => planDisplayName(
+  name: equb.name,
+  packageName: equb.packageName,
+  frequencyDays: equb.frequencyDays,
+);

@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get/get.dart';
+import 'package:niya_equb/core/util/package_names.dart';
 import 'package:niya_equb/features/member/packages/data/repository/ekub_packages_repository.dart';
 import 'package:niya_equb/features/member/packages/presentation/widgets/equb_visuals.dart';
 import 'package:niya_equb/shared/presentation/widgets/niya_style.dart';
 
 /// One Equb plan inside a package, drawn as a ticket.
 ///
-/// The details sit on a sage panel on the left; a maroon stub on the right
+/// The details sit on a white panel on the left; a maroon stub on the right
 /// carries the package name, the cycle and the Join button. The two are
-/// joined by a gold perforation with a notch cut out top and bottom, as in
-/// the Niya artwork.
+/// joined by a perforation with a notch cut out top and bottom, as in the
+/// Niya artwork. Drawn from [NiyaSkin], so it is maroon on white by day and a
+/// lifted maroon on black at night.
 class EqubTicketCard extends StatelessWidget {
   final EqubGroup group;
   final String? packageName;
@@ -37,7 +39,7 @@ class EqubTicketCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final skin = niya(context);
     final notch = 9.r;
     final joined = group.isJoined;
 
@@ -48,12 +50,13 @@ class EqubTicketCard extends StatelessWidget {
           split: _split,
           notch: notch,
           radius: 18.r,
-          shadow: Colors.black.withValues(alpha: isDark ? 0.5 : 0.18),
+          shadow: Colors.black.withValues(alpha: skin.isDark ? 0.5 : 0.16),
         ),
         foregroundPainter: _TicketFramePainter(
           split: _split,
           notch: notch,
           radius: 18.r,
+          edge: skin.line,
         ),
         child: ClipPath(
           clipper: _TicketClipper(split: _split, notch: notch, radius: 18.r),
@@ -63,7 +66,7 @@ class EqubTicketCard extends StatelessWidget {
               children: [
                 Expanded(
                   flex: (_split * 100).round(),
-                  child: _DetailsPanel(group: group, isDark: isDark),
+                  child: _DetailsPanel(group: group, packageName: packageName),
                 ),
                 Expanded(
                   flex: ((1 - _split) * 100).round(),
@@ -87,27 +90,27 @@ class EqubTicketCard extends StatelessWidget {
 
 class _DetailsPanel extends StatelessWidget {
   final EqubGroup group;
-  final bool isDark;
+  final String? packageName;
 
-  const _DetailsPanel({required this.group, required this.isDark});
+  const _DetailsPanel({required this.group, required this.packageName});
 
   @override
   Widget build(BuildContext context) {
-    final ink = isDark ? Colors.white : NiyaPalette.ink;
+    final skin = niya(context);
+    final ink = skin.ink;
     final amount = planAmount(group);
     final status = statusText(group.status);
     final members = _membersText(group);
     final closes = dateText(group.registrationCloseAt);
 
     return ColoredBox(
-      color: isDark ? NiyaPalette.navySoft : NiyaPalette.sage,
+      color: skin.paper,
       child: Stack(
         children: [
           Positioned.fill(
             child: CustomPaint(
               painter: IslamicPatternPainter(
-                color: (isDark ? NiyaPalette.gold : NiyaPalette.goldDeep)
-                    .withValues(alpha: 0.10),
+                color: skin.accent.withValues(alpha: skin.isDark ? 0.07 : 0.05),
                 cell: 34,
               ),
             ),
@@ -124,12 +127,16 @@ class _DetailsPanel extends StatelessWidget {
                     Icon(
                       Icons.groups_rounded,
                       size: 19.sp,
-                      color: isDark ? NiyaPalette.goldLight : NiyaPalette.maroon,
+                      color: skin.accent,
                     ),
                     SizedBox(width: 6.w),
                     Expanded(
                       child: Text(
-                        group.name ?? group.packageName ?? 'Equb',
+                        planDisplayName(
+                          name: group.name,
+                          packageName: group.package?.name ?? packageName,
+                          frequencyDays: group.contributionFrequencyDays,
+                        ),
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
@@ -144,7 +151,7 @@ class _DetailsPanel extends StatelessWidget {
                 ),
                 if (status != null) ...[
                   SizedBox(height: 6.h),
-                  _StatusChip(text: status, isDark: isDark),
+                  _StatusChip(text: status),
                 ],
                 SizedBox(height: 12.h),
                 Row(
@@ -156,7 +163,6 @@ class _DetailsPanel extends StatelessWidget {
                         label: paymentLabel(group.contributionFrequencyDays),
                         value: amount == null ? '—' : moneyText(amount),
                         emphasize: true,
-                        isDark: isDark,
                       ),
                     ),
                     SizedBox(width: 8.w),
@@ -165,7 +171,6 @@ class _DetailsPanel extends StatelessWidget {
                         icon: Icons.hourglass_bottom_rounded,
                         label: 'pkg_equb_duration'.tr,
                         value: durationText(group.duration) ?? '—',
-                        isDark: isDark,
                       ),
                     ),
                   ],
@@ -180,7 +185,6 @@ class _DetailsPanel extends StatelessWidget {
                         label: 'pkg_payment_cycle'.tr,
                         value:
                             frequencyText(group.contributionFrequencyDays) ?? '—',
-                        isDark: isDark,
                       ),
                     ),
                     SizedBox(width: 8.w),
@@ -189,17 +193,13 @@ class _DetailsPanel extends StatelessWidget {
                         icon: Icons.calendar_month_rounded,
                         label: 'pkg_start_date'.tr,
                         value: dateText(group.equbStartDate) ?? '—',
-                        isDark: isDark,
                       ),
                     ),
                   ],
                 ),
                 if (members != null || closes != null) ...[
                   SizedBox(height: 10.h),
-                  Container(
-                    height: 1,
-                    color: NiyaPalette.gold.withValues(alpha: 0.35),
-                  ),
+                  Container(height: 1, color: skin.line),
                   SizedBox(height: 8.h),
                   Wrap(
                     spacing: 12.w,
@@ -209,13 +209,11 @@ class _DetailsPanel extends StatelessWidget {
                         _Fact(
                           icon: Icons.people_alt_rounded,
                           text: members,
-                          isDark: isDark,
                         ),
                       if (closes != null)
                         _Fact(
                           icon: Icons.lock_clock_rounded,
                           text: 'pkg_closes_on'.trParams({'date': closes}),
-                          isDark: isDark,
                         ),
                     ],
                   ),
@@ -241,25 +239,24 @@ class _DetailsPanel extends StatelessWidget {
 
 class _StatusChip extends StatelessWidget {
   final String text;
-  final bool isDark;
 
-  const _StatusChip({required this.text, required this.isDark});
+  const _StatusChip({required this.text});
 
   @override
   Widget build(BuildContext context) {
+    final skin = niya(context);
+
     return Container(
       padding: EdgeInsets.symmetric(horizontal: 8.w, vertical: 3.h),
       decoration: BoxDecoration(
-        color: NiyaPalette.maroon.withValues(alpha: isDark ? 0.35 : 0.10),
+        color: skin.rose,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: NiyaPalette.maroon.withValues(alpha: isDark ? 0.6 : 0.25),
-        ),
+        border: Border.all(color: skin.accent.withValues(alpha: 0.25)),
       ),
       child: Text(
         text,
         style: TextStyle(
-          color: isDark ? NiyaPalette.goldLight : NiyaPalette.maroon,
+          color: skin.accent,
           fontSize: 10.5.sp,
           fontWeight: FontWeight.w800,
         ),
@@ -273,19 +270,18 @@ class _InfoCell extends StatelessWidget {
   final String label;
   final String value;
   final bool emphasize;
-  final bool isDark;
 
   const _InfoCell({
     required this.icon,
     required this.label,
     required this.value,
-    required this.isDark,
     this.emphasize = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    final accent = isDark ? NiyaPalette.goldLight : NiyaPalette.maroon;
+    final skin = niya(context);
+    final accent = skin.accent;
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,7 +290,7 @@ class _InfoCell extends StatelessWidget {
           width: 26.r,
           height: 26.r,
           decoration: BoxDecoration(
-            color: accent.withValues(alpha: 0.12),
+            color: skin.rose,
             borderRadius: BorderRadius.circular(8.r),
           ),
           child: Icon(icon, size: 15.sp, color: accent),
@@ -309,7 +305,7 @@ class _InfoCell extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: isDark ? Colors.white60 : NiyaPalette.inkSoft,
+                  color: skin.inkSoft,
                   fontSize: 10.sp,
                   fontWeight: FontWeight.w600,
                   height: 1.2,
@@ -321,9 +317,7 @@ class _InfoCell extends StatelessWidget {
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: emphasize
-                      ? (isDark ? NiyaPalette.goldLight : NiyaPalette.goldDeep)
-                      : (isDark ? Colors.white : NiyaPalette.ink),
+                  color: emphasize ? accent : skin.ink,
                   fontSize: emphasize ? 15.sp : 12.sp,
                   fontWeight: emphasize ? FontWeight.w900 : FontWeight.w800,
                   height: 1.2,
@@ -340,13 +334,12 @@ class _InfoCell extends StatelessWidget {
 class _Fact extends StatelessWidget {
   final IconData icon;
   final String text;
-  final bool isDark;
 
-  const _Fact({required this.icon, required this.text, required this.isDark});
+  const _Fact({required this.icon, required this.text});
 
   @override
   Widget build(BuildContext context) {
-    final color = isDark ? Colors.white70 : NiyaPalette.inkSoft;
+    final color = niya(context).inkSoft;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -385,16 +378,19 @@ class _Stub extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cycle = frequencyText(group.contributionFrequencyDays);
-    final name = packageName ?? group.package?.name;
+    final typed = packageName ?? group.package?.name;
+    final name = (typed == null || typed.trim().isEmpty)
+        ? null
+        : packageDisplayName(typed);
 
     return DecoratedBox(
-      decoration: const BoxDecoration(gradient: NiyaPalette.maroonStub),
+      decoration: BoxDecoration(gradient: niya(context).header),
       child: Stack(
         children: [
           Positioned.fill(
             child: CustomPaint(
               painter: IslamicPatternPainter(
-                color: NiyaPalette.gold.withValues(alpha: 0.14),
+                color: Colors.white.withValues(alpha: 0.08),
                 cell: 30,
               ),
             ),
@@ -414,7 +410,7 @@ class _Stub extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: TextStyle(
-                          color: NiyaPalette.goldLight,
+                          color: Colors.white,
                           fontSize: 15.sp,
                           fontWeight: FontWeight.w900,
                           height: 1.2,
@@ -427,7 +423,7 @@ class _Stub extends StatelessWidget {
                         textAlign: TextAlign.center,
                         maxLines: 2,
                         style: TextStyle(
-                          color: Colors.white,
+                          color: Colors.white.withValues(alpha: 0.85),
                           fontSize: 12.5.sp,
                           fontWeight: FontWeight.w700,
                         ),
@@ -439,11 +435,13 @@ class _Stub extends StatelessWidget {
                 if (joined)
                   _JoinedPill(onTap: onOpen)
                 else
-                  NiyaGoldButton(
+                  // White on the maroon stub.
+                  NiyaPrimaryButton(
                     label: 'join'.tr,
                     busy: isJoining,
                     height: 36.h,
                     fontSize: 14.sp,
+                    inverted: true,
                     onPressed: onJoin,
                   ),
               ],
@@ -470,12 +468,12 @@ class _JoinedPill extends StatelessWidget {
         decoration: BoxDecoration(
           color: Colors.white.withValues(alpha: 0.12),
           borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: NiyaPalette.goldLight.withValues(alpha: 0.7)),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.7)),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.check_circle_rounded, size: 15.sp, color: NiyaPalette.goldLight),
+            Icon(Icons.check_circle_rounded, size: 15.sp, color: Colors.white),
             SizedBox(width: 4.w),
             Flexible(
               child: Text(
@@ -483,7 +481,7 @@ class _JoinedPill extends StatelessWidget {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: NiyaPalette.goldLight,
+                  color: Colors.white,
                   fontSize: 13.sp,
                   fontWeight: FontWeight.w800,
                 ),
@@ -557,16 +555,18 @@ class _TicketShadowPainter extends CustomPainter {
       oldDelegate.shadow != shadow;
 }
 
-/// The gold edge of the ticket and the dashed perforation, drawn over it.
+/// The edge of the ticket and the dashed perforation, drawn over it.
 class _TicketFramePainter extends CustomPainter {
   final double split;
   final double notch;
   final double radius;
+  final Color edge;
 
   const _TicketFramePainter({
     required this.split,
     required this.notch,
     required this.radius,
+    required this.edge,
   });
 
   @override
@@ -575,13 +575,14 @@ class _TicketFramePainter extends CustomPainter {
       _ticketPath(size, split, notch, radius),
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.4
-        ..color = NiyaPalette.gold,
+        ..strokeWidth = 1.2
+        ..color = edge,
     );
 
-    final x = size.width * split;
+    // Stitched along the stub's edge, in white.
+    final x = size.width * split + 1.5;
     final dash = Paint()
-      ..color = NiyaPalette.goldLight.withValues(alpha: 0.9)
+      ..color = Colors.white.withValues(alpha: 0.85)
       ..strokeWidth = 1.4;
     const dashLength = 5.0;
     const gap = 4.0;
@@ -595,5 +596,6 @@ class _TicketFramePainter extends CustomPainter {
   bool shouldRepaint(_TicketFramePainter oldDelegate) =>
       oldDelegate.split != split ||
       oldDelegate.notch != notch ||
-      oldDelegate.radius != radius;
+      oldDelegate.radius != radius ||
+      oldDelegate.edge != edge;
 }
