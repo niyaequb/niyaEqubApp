@@ -3,32 +3,58 @@ workflows:
     name: iOS Release Build
     instance_type: mac_mini_m2
     max_build_duration: 60
+    integrations:
+      app_store_connect: Codemagic Key   # use "Codemagic Admin" if you create an Admin key
     environment:
+      groups:
+        - signing
       flutter: stable
       xcode: latest
       cocoapods: default
-    integrations:
-      app_store_connect: Codemagic Key
+      vars:
+        BUNDLE_ID: "com.niyaet.ekub"
+        APP_STORE_APPLE_ID: 6789517171
     scripts:
-      - name: Set up code signing settings on Xcode project
+      - name: Set up keychain
         script: |
-          # 1. Set the Apple Developer Team ID explicitly
-          xcode-project set-team --team-id DH6J3VY458
-          
-          # 2. Automatically fetch and install distribution signing files from App Store Connect
-          app-store-connect fetch-signing-files com.niyaet.ekub --type IOS_DISTRIBUTION --create
-          
-          # 3. Apply the fetched provisioning profiles to the Xcode project
+          keychain initialize
+
+      - name: Fetch or create signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
+            --type IOS_APP_STORE \
+            --create \
+            --certificate-key=@env:CERTIFICATE_PRIVATE_KEY
+
+      - name: Add certificates to keychain
+        script: |
+          keychain add-certificates
+
+      - name: Apply profiles to Xcode project
+        script: |
           xcode-project use-profiles
+
       - name: Get Flutter packages
         script: |
           flutter pub get
+
+      - name: Install pods
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+
       - name: Build iOS IPA
         script: |
-          flutter build ipa --release --export-options-plist=$HOME/export_options.plist
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID")
+          NEW_BUILD=$((LATEST + 1))
+          echo "Building with build number $NEW_BUILD"
+          flutter build ipa --release \
+            --build-number=$NEW_BUILD \
+            --export-options-plist=/Users/builder/export_options.plist
     artifacts:
       - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
     publishing:
       app_store_connect:
         auth: integration
         submit_to_testflight: true
+        submit_to_app_store: false
